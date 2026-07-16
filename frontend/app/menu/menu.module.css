@@ -1,0 +1,192 @@
+.tabWrap {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 40;
+  background: rgba(250, 246, 239, 0.85);
+  backdrop-filter: blur(12px);
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* 소스 치킨 서브탭 */
+.sauceSlide {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: 22px 0;
+}
+
+.sauceInner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sauceArrow {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.sauceArrow:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.sauceArrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.sauceList {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  flex: 1;
+}
+
+.sauceList::-webkit-scrollbar {
+  display: none;
+}
+
+.sauceItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  scroll-snap-align: center;
+  min-width: 92px;
+  transition: background 0.2s ease, transform 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.sauceItem img {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+  filter: grayscale(0.4);
+  opacity: 0.75;
+  transition: all 0.25s ease;
+}
+
+.sauceItem span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-mute);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.sauceItem:hover img {
+  filter: none;
+  opacity: 1;
+  transform: translateY(-3px);
+}
+
+.sauceActive {
+  background: var(--cream);
+  border-color: var(--brand);
+}
+
+.sauceActive img {
+  filter: none;
+  opacity: 1;
+}
+
+.sauceActive span {
+  color: var(--brand);
+}
+
+/* 메뉴 그리드 */
+.listSection {
+  padding-top: 56px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+}
+
+.menuCard {
+  width: 100%;
+  padding: 0;
+  text-align: center;
+  display: block;
+}
+
+.menuCard figure {
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px 0 6px;
+}
+
+.menuCard figure img {
+  width: 70%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 22px;
+  box-shadow: 0 10px 26px rgba(25, 19, 16, 0.12);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s ease;
+}
+
+.menuCard:hover figure img {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 16px 34px rgba(25, 19, 16, 0.18);
+}
+
+.menuTxt {
+  padding: 14px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.menuTxt strong {
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.menuTxt span {
+  font-size: 0.8rem;
+  color: var(--ink-mute);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hint {
+  margin-top: 36px;
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

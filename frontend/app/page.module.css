@@ -1,0 +1,333 @@
+/* NEW MENU */
+.newGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.newCard {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  display: block;
+}
+
+.newCard img {
+  width: 100%;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.newCard:hover img {
+  transform: scale(1.04);
+}
+
+.newBadge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(230, 51, 18, 0.35);
+}
+
+/* RECOMMEND */
+.recommendSection {
+  background: linear-gradient(180deg, #1c1410 0%, #241a13 100%);
+  color: #fff;
+}
+
+.recommendSection :global(.eyebrow) {
+  color: var(--accent);
+}
+
+.recommendSection :global(.eyebrow)::before {
+  background: var(--accent);
+}
+
+.recommendHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 36px;
+}
+
+.arrows {
+  display: flex;
+  gap: 10px;
+}
+
+.arrows button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.arrows button:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.recommendSlider {
+  display: flex;
+  gap: 22px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 10px;
+  scrollbar-width: none;
+}
+
+.recommendSlider::-webkit-scrollbar {
+  display: none;
+}
+
+.recommendSlideWrap {
+  flex: 0 0 min(300px, 78vw);
+  scroll-snap-align: start;
+}
+
+.recommendCard {
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  display: block;
+}
+
+.recommendCard figure {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.recommendCard figure img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.recommendCard:hover figure img {
+  transform: scale(1.06);
+}
+
+.recommendTxt {
+  padding: 16px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bestBadge {
+  display: inline-block;
+  width: fit-content;
+  background: var(--accent);
+  color: #241a13;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+}
+
+.recommendTxt strong {
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.recommendTxt em {
+  font-style: normal;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* 매장찾기 */
+.storeSection {
+  background: var(--cream);
+}
+
+.searchCard {
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 36px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchInput {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 0 20px;
+  height: 52px;
+}
+
+.searchInput input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1rem;
+}
+
+.searchRow select {
+  height: 52px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 0 18px;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.searchRow select:focus {
+  border-color: var(--brand);
+}
+
+.allStores {
+  display: inline-block;
+  margin-top: 18px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  transition: color 0.2s;
+}
+
+.allStores:hover {
+  color: var(--brand);
+}
+
+/* 이벤트 + 새소식 */
+.newsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.newsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.newsHead h3 {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.newsHead a {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-mute);
+  transition: color 0.2s;
+}
+
+.newsHead a:hover {
+  color: var(--brand);
+}
+
+.eventCard {
+  display: block;
+}
+
+.eventCard img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.eventTxt {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eventTxt strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.eventTxt span {
+  font-size: 0.85rem;
+  color: var(--ink-mute);
+}
+
+.noticeList {
+  display: flex;
+  flex-direction: column;
+}
+
+.noticeList li a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 4px;
+  border-bottom: 1px solid var(--line);
+  transition: all 0.2s;
+}
+
+.noticeList li a:hover {
+  padding-left: 10px;
+}
+
+.noticeList li a:hover strong {
+  color: var(--brand);
+}
+
+.noticeList strong {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.45;
+  transition: color 0.2s;
+}
+
+.noticeList span {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--ink-mute);
+}
+
+@media (max-width: 900px) {
+  .newGrid {
+    grid-template-columns: 1fr;
+    max-width: 460px;
+    margin: 0 auto;
+  }
+
+  .searchRow {
+    grid-template-columns: 1fr;
+  }
+
+  .newsGrid {
+    grid-template-columns: 1fr;
+  }
+}

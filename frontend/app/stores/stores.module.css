@@ -1,0 +1,147 @@
+.searchCard {
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr auto;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.searchCard select,
+.searchCard input {
+  height: 52px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 0 20px;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+.searchCard select:focus,
+.searchCard input:focus {
+  border-color: var(--brand);
+}
+
+.mapGrid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.storeList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ink-mute);
+  background: var(--paper);
+  border-radius: var(--radius-md);
+}
+
+.storeItem {
+  width: 100%;
+  text-align: left;
+  background: var(--paper);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.22s ease;
+  display: block;
+}
+
+.storeItem:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.storeActive {
+  border-color: var(--brand);
+  background: #fff7f4;
+}
+
+.storeItem strong {
+  display: block;
+  font-size: 1.12rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.storeActive strong {
+  color: var(--brand);
+}
+
+.storeItem p {
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+.storeItem dl {
+  display: flex;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+
+.storeItem dt {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.storeItem dd span {
+  display: block;
+}
+
+.mapBox {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  min-height: 480px;
+  background: var(--paper);
+}
+
+.mapBox iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  border: 0;
+  display: block;
+}
+
+.mapPlaceholder {
+  height: 100%;
+  min-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-mute);
+}
+
+@media (max-width: 900px) {
+  .searchCard {
+    grid-template-columns: 1fr;
+  }
+
+  .mapGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .storeList {
+    max-height: none;
+    overflow: visible;
+  }
+}

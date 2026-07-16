@@ -1,0 +1,12 @@
+[
+  { "name": "아메리칸 징", "image": "/menu/slide_sauce1.png" },
+  { "name": "저크", "image": "/menu/slide_sauce2.png" },
+  { "name": "버팔로", "image": "/menu/slide_sauce3.png" },
+  { "name": "레몬페퍼", "image": "/menu/slide_sauce4.png" },
+  { "name": "마마양념", "image": "/menu/slide_sauce5.png" },
+  { "name": "매운양념", "image": "/menu/slide_sauce6.png" },
+  { "name": "마늘간장", "image": "/menu/slide_sauce7.png" },
+  { "name": "오렌지", "image": "/menu/slide_sauce8.png" },
+  { "name": "블랙페퍼", "image": "/menu/slide_sauce9.png" },
+  { "name": "삼양불닭", "image": "/menu/slide_sauce10.png" }
+]

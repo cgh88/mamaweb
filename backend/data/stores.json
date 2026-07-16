@@ -1,0 +1,15 @@
+[
+  {
+    "id": 2,
+    "name": "마마치킨 독립문점",
+    "shortName": "마마치킨 독립문점",
+    "city": "서울",
+    "district": "종로구",
+    "address": "서울 종로구 송월길 99 경희궁자이 2단지 상가동 1층 2117호 마마치킨 독립문점",
+    "phone": "02-738-7979",
+    "hours": [
+      "16:00~01:00(매일)"
+    ],
+    "mapEmbed": "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d12649.380053599087!2d126.963397!3d37.5704927!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x357ca3daec357153%3A0x4d8246b9f126825e!2z6rK97Z2s6raB7J6Q7J20MuuLqOyngA!5e0!3m2!1sko!2skr!4v1720977016534!5m2!1sko!2skr"
+  }
+]

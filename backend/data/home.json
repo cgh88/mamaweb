@@ -1,0 +1,125 @@
+{
+  "banners": [
+    {
+      "image": "/bbs_file/1783898721_banner.jpg"
+    },
+    {
+      "image": "/bbs_file/1721354830_banner.webp"
+    },
+    {
+      "image": "/bbs_file/1721354899_banner.webp"
+    },
+    {
+      "image": "/bbs_file/1721354921_banner.webp"
+    }
+  ],
+  "newMenu": [
+    {
+      "name": "오렌지 한마리 10P",
+      "nameEn": "Orange Chicken 10P",
+      "image": "/img/new_menu1.png",
+      "detailImage": "/menu/menu55.png",
+      "description": "달달하고 상큼한 오렌지맛과 향의 소스 치킨",
+      "origin": "[원료육 : 국내산]",
+      "spicyImage": null
+    },
+    {
+      "name": "후라이드 콘립",
+      "nameEn": "Fried Corn Rip",
+      "image": "/img/new_menu2.png",
+      "detailImage": "/menu/menu62.png",
+      "description": "옥수수를 통째로 튀겨 고소하고 알알이 터지는 알갱이가 매력인 메뉴",
+      "origin": "[원료육 : 국내산]",
+      "spicyImage": null
+    },
+    {
+      "name": "삼양불닭 한마리 10P",
+      "nameEn": "Samyang Buldak Chicken 10P",
+      "image": "/img/new_menu3.png",
+      "detailImage": "/menu/menu42.png",
+      "description": "삼양과 마마치킨이 콜라보한 매운 불닭 소스 치킨",
+      "origin": "[원료육 : 국내산]",
+      "spicyImage": "/menu/hot3.png"
+    }
+  ],
+  "recommendMenu": [
+    {
+      "category": "BEST",
+      "title": "레몬페퍼 치킨 한마리 10P",
+      "subtitle": "LEMON PEPPER CHICKEN 10P",
+      "name": "레몬페퍼 한마리 10P",
+      "nameEn": "Lemon Pepper Chicken 10P",
+      "image": "/img/best1.png",
+      "detailImage": "/menu/new_m4_1.png",
+      "description": "미국인들이 사랑하는 후추와 레몬 맛의 분말 소스 치킨",
+      "origin": "[원료육 : 국내산]"
+    },
+    {
+      "category": "BEST",
+      "title": "오렌지 치킨 다리 8P",
+      "subtitle": "ORANGE CHICKEN DRUM STICK 8P",
+      "name": "오렌지 다리 8P",
+      "nameEn": "Orange Drumstick 8P",
+      "image": "/img/best2.png",
+      "detailImage": "/menu/new_m8_5.png",
+      "description": "달달하고 상큼한 오렌지맛과 향의 소스 치킨",
+      "origin": "[원료육 : 국내산]"
+    },
+    {
+      "category": "BEST",
+      "title": "블랙페퍼 치킨 한마리 10P",
+      "subtitle": "BLACK PEPPER CHICKEN 10P",
+      "name": "블랙페퍼 한마리 10P",
+      "nameEn": "Black Pepper Chicken 10P",
+      "image": "/img/best3.png",
+      "detailImage": "/menu/new_m9_1.png",
+      "description": "알싸한 블랙페퍼와 간장, 굴소스로 맛을 낸 소스 치킨",
+      "origin": "[원료육 : 국내산]"
+    },
+    {
+      "category": "BEST",
+      "title": "아메리칸 징 치킨 한마리 10P",
+      "subtitle": "AMERICAN ZING CHICKEN 10P",
+      "name": "아메리칸 징 한마리 10P",
+      "nameEn": "American Zing Chicken 10P",
+      "image": "/img/best4.png",
+      "detailImage": "/menu/new_m1.png",
+      "description": "스윗칠리에 알싸한 홍고추를 더한 아메리칸 양념 소스",
+      "origin": "[원료육 : 국내산]"
+    }
+  ],
+  "recommFood": [
+    {
+      "name": "국물 떡볶이",
+      "nameEn": "Soup Style Tteokbokki",
+      "image": "/img/recomm_food1.png",
+      "detailImage": "/menu/menu64.png",
+      "description": "달달한 국물이 넉넉하게 들어간 떡볶이, 치킨을 국물에 찍어먹는 별미!",
+      "origin": "[원료육 : 국내산]"
+    },
+    {
+      "name": "케이준 감자튀김",
+      "nameEn": "Cajun Fired Patato",
+      "image": "/img/recomm_food2.png",
+      "detailImage": "/menu/menu63.png",
+      "description": "케이준 스파이스에 버무려 튀겨낸 감자튀김",
+      "origin": "[원료육 : 국내산]"
+    },
+    {
+      "name": "후라이드 콘립",
+      "nameEn": "Fried Corn Rip",
+      "image": "/img/recomm_food3.png",
+      "detailImage": "/menu/menu62.png",
+      "description": "옥수수를 통째로 튀겨 고소하고 알알이 터지는 알갱이가 매력인 메뉴",
+      "origin": "[원료육 : 국내산]"
+    },
+    {
+      "name": "블랙페퍼 한마리 10P",
+      "nameEn": "Black Pepper Chicken 10P",
+      "image": "/img/recomm_food4.png",
+      "detailImage": "/menu/new_m9_1.png",
+      "description": "알싸한 블랙페퍼와 간장, 굴소스로 맛을 낸 소스 치킨",
+      "origin": "[원료육 : 국내산]"
+    }
+  ]
+}

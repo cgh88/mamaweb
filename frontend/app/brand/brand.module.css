@@ -1,0 +1,131 @@
+.tabWrap {
+  padding: 28px 0;
+  position: sticky;
+  top: var(--header-h);
+  z-index: 40;
+  background: rgba(250, 246, 239, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+.storyImg {
+  max-width: 1400px;
+  margin: 48px auto;
+  padding: 0 24px;
+}
+
+.storyImg img {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.sauceSection {
+  background: linear-gradient(180deg, #1c1410, #241a13);
+  color: #fff;
+  padding: 80px 0;
+}
+
+.sauceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.sauceLabel {
+  display: inline-block;
+  background: var(--accent);
+  color: #241a13;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+.sauceTxt h3 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.sauceTxt ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.sauceTxt li {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.8);
+  padding-left: 16px;
+  position: relative;
+}
+
+.sauceTxt li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.sauceArrows {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sauceArrows button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.sauceArrows button:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.sauceArrows span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+@keyframes sauceIn {
+  from { opacity: 0; transform: translateX(30px) scale(0.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.sauceImg img {
+  width: 100%;
+  animation: sauceIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (max-width: 900px) {
+  .sauceGrid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .storyImg {
+    margin: 28px auto;
+    padding: 0 16px;
+  }
+}

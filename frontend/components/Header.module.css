@@ -1,0 +1,236 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-h);
+  z-index: 90;
+  background: rgba(250, 246, 239, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.header.scrolled {
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom-color: var(--line);
+  box-shadow: 0 4px 24px rgba(25, 19, 16, 0.06);
+}
+
+.inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.logo img {
+  height: 40px;
+  width: auto;
+}
+
+.nav ul {
+  display: flex;
+  gap: 8px;
+}
+
+.nav li {
+  position: relative;
+}
+
+.nav li > a {
+  display: block;
+  padding: 24px 18px;
+  font-weight: 700;
+  font-size: 1.02rem;
+  transition: color 0.2s ease;
+  position: relative;
+}
+
+.nav li > a::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--brand);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav li:hover > a,
+.nav li.active > a {
+  color: var(--brand);
+}
+
+.nav li:hover > a::after,
+.nav li.active > a::after {
+  transform: scaleX(1);
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  min-width: 180px;
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.nav li:hover .dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.dropdown a {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.dropdown a:hover {
+  background: var(--cream);
+  color: var(--brand);
+}
+
+.orderBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 16px rgba(230, 51, 18, 0.3);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.orderBtn:hover {
+  background: var(--brand-dark);
+  transform: translateY(-2px);
+}
+
+.moBtn {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+}
+
+.moBtn span {
+  width: 24px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+/* drawer */
+.drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 10, 8, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s;
+  z-index: 98;
+}
+
+.drawerBackdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 84vw);
+  background: #fff;
+  z-index: 99;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  padding: 20px 24px 40px;
+  overflow-y: auto;
+}
+
+.drawer.open {
+  transform: translateX(0);
+}
+
+.drawerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.drawerTop button {
+  font-size: 1.3rem;
+  padding: 6px;
+}
+
+.drawerGroup {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 0;
+}
+
+.drawerTitle {
+  font-weight: 800;
+  font-size: 1.08rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.drawerSub {
+  display: flex;
+  flex-direction: column;
+}
+
+.drawerSub a {
+  padding: 7px 0 7px 12px;
+  color: var(--ink-mute);
+  font-size: 0.96rem;
+  border-left: 2px solid var(--line);
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.drawerSub a:hover {
+  color: var(--brand);
+  border-left-color: var(--brand);
+}
+
+.drawerCall {
+  margin-top: 24px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .nav {
+    display: none;
+  }
+
+  .moBtn {
+    display: flex;
+  }
+}

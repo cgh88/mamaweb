@@ -1,0 +1,167 @@
+.tabWrap {
+  padding: 28px 0;
+  position: sticky;
+  top: var(--header-h);
+  z-index: 40;
+  background: rgba(250, 246, 239, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+.eventGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.eventCard {
+  display: block;
+}
+
+.eventCard img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.eventTxt {
+  padding: 18px 22px;
+}
+
+.eventTxt strong {
+  display: block;
+  font-size: 1.08rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.eventTxt span {
+  font-size: 0.85rem;
+  color: var(--ink-mute);
+}
+
+.eventPeriod {
+  font-weight: 600;
+  color: var(--ink-soft) !important;
+}
+
+/* contact (고객의 소리 / 제휴문의) */
+.contactCard {
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 56px 32px;
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.contactCard h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.contactCard p {
+  color: var(--ink-mute);
+  margin-bottom: 28px;
+}
+
+.contactBtns {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* 게시글 상세 */
+.viewCard {
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 44px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.viewCard h1 {
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.viewDate {
+  margin-top: 10px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-mute);
+  font-size: 0.9rem;
+}
+
+.viewPeriod {
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.viewContent {
+  padding: 32px 0;
+  font-size: 1.02rem;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  overflow-wrap: break-word;
+}
+
+.viewContent :global(img) {
+  border-radius: var(--radius-md);
+  margin: 12px auto;
+}
+
+.viewContent :global(a) {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.viewNav {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.viewNav a,
+.viewNav span {
+  display: flex;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.viewNav a:hover strong {
+  color: var(--brand);
+}
+
+.viewNav b {
+  flex-shrink: 0;
+  color: var(--ink-mute);
+  font-weight: 600;
+}
+
+.backBtn {
+  margin-top: 32px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .eventGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .viewCard {
+    padding: 28px 20px;
+  }
+}
