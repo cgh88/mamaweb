@@ -93,7 +93,8 @@ export default function Header() {
           </ul>
         </nav>
 
-        <a href="tel:02-703-7979" className={`${styles.orderBtn} pc-only`}>
+        {/* 모바일에서는 숨기고 햄버거 메뉴만 노출 (드로어 안에 전화주문 버튼 있음) */}
+        <a href="tel:02-703-7979" className={styles.orderBtn}>
           📞 전화주문
         </a>
 

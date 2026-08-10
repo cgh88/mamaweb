@@ -255,7 +255,17 @@
     display: none;
   }
 
+  /* 모바일에서는 전화주문 버튼을 숨기고 햄버거 버튼으로 대체
+     (전화주문은 드로어 메뉴 하단에서 제공) */
+  .orderBtn {
+    display: none;
+  }
+
   .moBtn {
     display: flex;
+  }
+
+  .inner {
+    gap: 12px;
   }
 }
