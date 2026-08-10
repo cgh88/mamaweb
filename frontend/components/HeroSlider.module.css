@@ -22,24 +22,42 @@
 
 .dots {
   position: absolute;
-  bottom: 22px;
+  bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 8px;
+  gap: 2px;
   z-index: 2;
 }
 
+/* 점은 작게 보이되 터치 영역은 넉넉하게 (버튼 자체를 키우고 배경은 가상요소로) */
 .dot,
 .dotActive {
+  position: relative;
+  width: 32px;
+  height: 44px;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot::before,
+.dotActive::before {
+  content: '';
+  display: block;
   width: 9px;
   height: 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.55);
-  transition: all 0.3s ease;
+  transition: width 0.3s ease, background 0.3s ease;
 }
 
 .dotActive {
+  width: 44px;
+}
+
+.dotActive::before {
   width: 28px;
   background: #fff;
 }
