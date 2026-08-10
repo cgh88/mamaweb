@@ -1,12 +1,13 @@
 'use client';
 
-const KEY_STORAGE = 'mama_admin_key';
+// 세션 토큰은 sessionStorage에 보관 (탭을 닫으면 삭제되어 localStorage보다 안전)
+const TOKEN_STORAGE = 'mama_admin_token';
 
-export const getAdminKey = () =>
-  typeof window === 'undefined' ? null : localStorage.getItem(KEY_STORAGE);
+export const getAdminToken = () =>
+  typeof window === 'undefined' ? null : sessionStorage.getItem(TOKEN_STORAGE);
 
-export const setAdminKey = (key: string) => localStorage.setItem(KEY_STORAGE, key);
-export const clearAdminKey = () => localStorage.removeItem(KEY_STORAGE);
+export const setAdminToken = (token: string) => sessionStorage.setItem(TOKEN_STORAGE, token);
+export const clearAdminToken = () => sessionStorage.removeItem(TOKEN_STORAGE);
 
 export async function adminFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(path, {
@@ -15,13 +16,13 @@ export async function adminFetch(path: string, init: RequestInit = {}) {
       ...(init.body && !(init.body instanceof FormData)
         ? { 'Content-Type': 'application/json' }
         : {}),
-      'x-admin-key': getAdminKey() || '',
+      'x-admin-token': getAdminToken() || '',
       ...init.headers,
     },
   });
   if (res.status === 401) {
-    clearAdminKey();
-    throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+    clearAdminToken();
+    throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

@@ -216,7 +216,114 @@ sudo nginx -t && sudo systemctl restart nginx
 ```
 
 그리고 Lightsail 방화벽에서 **80(HTTP)** 포트를 열어주세요. (기본으로 열려 있어요)
-이제 `http://내도메인.kr` 로 접속됩니다. HTTPS(자물쇠)까지 원하면 `certbot`을 검색해보세요.
+이제 `http://내도메인.kr` 로 접속됩니다.
+
+---
+
+## 6-1단계. 구매한 SSL 인증서 적용 (HTTPS 🔒)
+
+> 가비아 등에서 SSL 인증서를 구매한 경우의 적용 방법입니다.
+> (무료로 하고 싶다면 `certbot`(Let's Encrypt)을 검색해보세요)
+
+### ① 받은 파일 확인
+
+**sslcert.co.kr에서 발급받은 경우** (우리 케이스) — 발급 완료 zip 안에 이미 통합된 파일이 들어 있어 합칠 필요가 없습니다:
+
+| 파일 | 설명 |
+| --- | --- |
+| `도메인.all.crt.pem` | 서버 인증서 + 체인 + 루트가 **이미 하나로 합쳐진 통합 파일** → 그대로 사용 |
+| `도메인.key.pem` | **개인키** — 절대 유출 금지! |
+
+> 💡 다른 업체에서 도메인 인증서(`.crt`)와 체인(`ca_bundle.crt`)이 따로 오는 경우에는 합쳐야 합니다 (순서 중요: 도메인 것이 먼저):
+> `cat domain.crt ca_bundle.crt > fullchain.crt`
+> `.pfx` 하나만 받았다면: `openssl pkcs12 -in cert.pfx -nocerts -nodes -out private.key` / `-clcerts -nokeys -out domain.crt` / `-cacerts -nokeys -out ca_bundle.crt`
+
+### ② 서버에 인증서 올리기
+
+내 컴퓨터(PowerShell)에서 서버로 파일 전송 (Lightsail → 계정 페이지에서 SSH 키 `.pem` 다운로드 필요):
+
+```bash
+scp -i LightsailDefaultKey.pem 도메인.all.crt.pem 도메인.key.pem ubuntu@서버IP:~/
+```
+
+서버 터미널에서 안전한 위치로 옮기고 권한 잠그기:
+
+```bash
+sudo mkdir -p /etc/nginx/ssl
+sudo mv ~/도메인.all.crt.pem /etc/nginx/ssl/fullchain.crt
+sudo mv ~/도메인.key.pem /etc/nginx/ssl/private.key
+sudo chmod 600 /etc/nginx/ssl/private.key
+sudo chown root:root /etc/nginx/ssl/*
+```
+
+### ③ Nginx 설정을 HTTPS용으로 교체
+
+```bash
+sudo tee /etc/nginx/sites-available/mamaweb <<'EOF'
+# HTTP(80) → HTTPS(443) 자동 이동
+server {
+    listen 80;
+    server_name 내도메인.kr www.내도메인.kr;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS(443)
+server {
+    # http2를 켜는 문법은 Nginx 버전에 따라 다름:
+    #  - 1.25.1 이상: listen 443 ssl; + 별도 줄에 http2 on;
+    #  - 그 이전(우분투 22.04 기본 1.18 포함): 아래처럼 listen에 http2를 함께 표기
+    listen 443 ssl http2;
+    server_name 내도메인.kr www.내도메인.kr;
+
+    ssl_certificate     /etc/nginx/ssl/fullchain.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    client_max_body_size 20M;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+EOF
+sudo ln -sf /etc/nginx/sites-available/mamaweb /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
+```
+
+`내도메인.kr` 두 곳(80, 443 블록)을 실제 도메인으로 바꾸는 것을 잊지 마세요.
+
+### ④ 방화벽에서 443 열기
+
+Lightsail → 인스턴스 → 네트워킹 탭 → 규칙 추가: **HTTPS (TCP 443)**
+
+### ⑤ 확인
+
+- 브라우저에서 `https://내도메인.kr` 접속 → 주소창에 🔒 자물쇠가 보이면 성공!
+- `http://`로 접속해도 자동으로 `https://`로 이동하는지 확인
+
+### ⑥ 관리자 IP 제한을 쓰는 경우 (중요)
+
+Nginx를 거치면 백엔드에는 모든 요청이 127.0.0.1로 보입니다.
+실제 방문자 IP를 인식하도록 백엔드를 `TRUST_PROXY=1` 환경변수와 함께 실행하세요:
+
+```bash
+pm2 delete mama-backend
+cd ~/mamaweb/backend
+TRUST_PROXY=1 ADMIN_KEY="나만아는비밀번호123" pm2 start server.js --name mama-backend
+pm2 save
+```
+
+(코드에 이미 반영되어 있어 환경변수만 주면 됩니다. 프록시 없이 로컬에서 켜면 IP 속이기가 가능해지니 서버에서만 켜세요.)
+
+### ⚠️ 주의사항
+
+- **private.key는 절대 이메일/메신저/git에 올리지 마세요.** 유출되면 인증서를 재발급해야 합니다.
+- 구매 인증서는 **유효기간(보통 1년)**이 있습니다. 만료 전에 재발급받아 ②~③의 fullchain.crt만 교체하고 `sudo systemctl reload nginx` 하면 됩니다. 만료일 2주 전 알림을 달력에 등록해두세요.
 
 ---
 

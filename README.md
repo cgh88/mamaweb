@@ -57,7 +57,23 @@ mamaweb/
 ## 관리자 페이지
 
 - 주소: **http://localhost:3000/admin** (푸터 하단 '관리자' 링크로도 진입)
-- 비밀번호: 기본 `mama1234` — 백엔드 `ADMIN_KEY` 환경변수로 변경 가능
+- 비밀번호: 최초 `mama1234` (또는 최초 실행 시 `ADMIN_KEY` 환경변수 값) — **로그인 후 관리자 페이지의 "🔒 비밀번호 변경" 버튼으로 변경**하세요. 기본 비밀번호 사용 중에는 경고 배너가 표시됩니다.
+
+### 인증 보안 구조
+
+- 비밀번호는 **scrypt 해시 + 솔트**로 `backend/data/auth.json`에 저장 (평문 저장 없음, git 커밋 제외)
+- 로그인 성공 시 **랜덤 세션 토큰**(12시간 유효) 발급 — 비밀번호 자체는 클라이언트에 저장되지 않음
+- 토큰은 브라우저 sessionStorage에 보관 (탭 종료 시 삭제)
+- **로그인 5회 실패 시 해당 IP 10분 잠금** (무차별 대입 방어)
+- 비밀번호 변경 시 기존 세션 전체 무효화, 새 비밀번호는 8자 이상 + 영문/숫자 포함 필수
+- 비밀번호 비교는 timing-safe 방식 사용
+- **업로드 제한**: jpg/png/gif/webp만 허용 (확장자 + MIME 이중 검사, SVG는 XSS 위험으로 차단), 10MB 제한
+- **보안 헤더**: helmet 적용 (CSP, X-Frame-Options, X-Content-Type-Options 등, X-Powered-By 제거)
+- **CORS 제한**: 기본 `http://localhost:3000`만 허용 — 배포 시 `CORS_ORIGINS` 환경변수로 지정 (쉼표 구분)
+- **접속 IP 제한**: 관리자 페이지의 "⚙️ 보안 설정" 탭에서 허용 IP 목록 관리 (`auth.json`의 `allowedIps`에 저장)
+  - 목록이 비어 있으면 모든 IP 허용, IP를 등록하면 해당 IP에서만 관리자 API(로그인 포함) 접근 가능
+  - 저장 시 현재 접속 IP가 목록에 없으면 자동 추가 (잠금 방지)
+  - 실수로 잠긴 경우: 서버에서 `backend/data/auth.json`의 `allowedIps`를 `[]`로 수정 후 재시작
 - 기능:
   - **메뉴 관리**: 카테고리/서브탭별 메뉴 추가·수정·삭제, 이미지 업로드
   - **홈 배너 관리**: 메인 상단 스크롤(슬라이드) 배너 추가·삭제·순서 변경
@@ -67,15 +83,18 @@ mamaweb/
 - 변경 사항은 `backend/data/*.json`에 즉시 저장되고 사이트에 바로 반영됩니다.
 - 업로드 이미지는 `frontend/public/uploads/`에 저장됩니다.
 
-### 관리자 API (`x-admin-key` 헤더 필요)
+### 관리자 API (`x-admin-token` 헤더 필요)
 
 | 엔드포인트 | 설명 |
 | --- | --- |
-| `POST /api/admin/login` | 비밀번호 확인 |
+| `POST /api/admin/login` | 로그인 → 세션 토큰 발급 (5회 실패 시 IP 잠금) |
+| `POST /api/admin/logout` | 세션 종료 |
+| `POST /api/admin/password` | 비밀번호 변경 (현재 비밀번호 확인 필수) |
+| `GET/PUT /api/admin/allowed-ips` | 접속 허용 IP 목록 조회/저장 |
 | `POST /api/admin/upload` | 이미지 업로드 (multipart, 10MB 제한) |
 | `GET/POST /api/admin/menu`, `PUT/DELETE /api/admin/menu/:id` | 메뉴 CRUD |
 | `POST /api/admin/posts`, `PUT/DELETE /api/admin/posts/:idx` | 게시글 CRUD |
 | `GET/PUT /api/admin/banners` | 홈 배너 조회/일괄 저장 |
 | `GET/POST /api/admin/stores`, `PUT/DELETE /api/admin/stores/:id` | 매장 CRUD |
 
-> ⚠️ 현재 인증은 로컬 개발용 단순 키 방식입니다. 실서비스 배포 시 세션/JWT 기반 인증과 HTTPS 적용이 필요합니다.
+> ⚠️ 실서비스 배포 시 HTTPS 적용이 필수입니다 (토큰이 평문 HTTP로 전송되면 탈취 가능).

@@ -78,6 +78,20 @@
 @media (max-width: 768px) {
   .hero {
     border-radius: 0 0 20px 20px;
+    /* 배너 원본(1920x737)을 좌우 크롭해 모바일에서 크게 표시.
+       280px = 원본 세로 해상도(737px) 기준 화질 저하 없는 최대 높이 */
+    height: min(65vw, 280px);
+  }
+
+  .track,
+  .slide {
+    height: 100%;
+  }
+
+  .slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .arrow {

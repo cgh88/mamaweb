@@ -1,12 +1,28 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const ADMIN_KEY = process.env.ADMIN_KEY || 'mama1234';
+
+// Nginx 등 리버스 프록시 뒤에서 실행할 때만 TRUST_PROXY=1로 설정
+// (켜야 X-Forwarded-For를 신뢰해 실제 방문자 IP를 인식 — IP 제한/로그인 잠금에 필요.
+//  프록시 없이 켜면 헤더 조작으로 IP를 속일 수 있으므로 로컬 개발에서는 끈 상태 유지)
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
+}
+
+// CORS 허용 origin: 기본은 로컬 프론트만. 배포 시 CORS_ORIGINS 환경변수로 지정 (쉼표 구분)
+// (프론트는 Next rewrite로 서버-서버 프록시하므로 브라우저 CORS가 필요 없음 —
+//  브라우저에서 :4000에 직접 접근하는 경우만 아래 목록으로 제한됨)
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 // 업로드 이미지는 Next.js가 정적 서빙하도록 frontend/public/uploads에 저장
 const UPLOAD_DIR = path.join(__dirname, '..', 'frontend', 'public', 'uploads');
@@ -27,7 +43,8 @@ const home = load('home');
 const CATEGORIES = ['BEST MENU', '후라이드 치킨', '소스 치킨', '베이스 소스', '딥 소스', '사이드'];
 const DEFAULT_SAUCE_TAB = sauceTabs[0].name; // 아메리칸 징
 
-app.use(cors());
+app.use(helmet()); // 보안 헤더 적용 (X-Frame-Options, CSP 등) + X-Powered-By 제거
+app.use(cors({ origin: CORS_ORIGINS }));
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -130,23 +147,184 @@ app.get('/api/stores', (req, res) => {
 });
 
 /* ============================================================
-   관리자 API (/api/admin/*)
-   - x-admin-key 헤더로 인증 (기본 키: mama1234, ADMIN_KEY 환경변수로 변경)
+   관리자 인증
+   - 비밀번호는 scrypt 해시로 data/auth.json에 저장 (평문 저장 안 함)
+   - 로그인 성공 시 랜덤 세션 토큰 발급 (x-admin-token 헤더로 인증, 12시간 유효)
+   - 로그인 실패 5회 → 해당 IP 10분 잠금 (무차별 대입 방어)
+   - 최초 실행 시 ADMIN_KEY 환경변수(없으면 mama1234)로 초기 비밀번호 생성
    - 변경 사항은 data/*.json에 즉시 영속화
    ============================================================ */
 
+const AUTH_FILE = path.join(__dirname, 'data', 'auth.json');
+const hashPassword = (pw, salt) => crypto.scryptSync(String(pw), salt, 64).toString('hex');
+
+const loadAuth = () => {
+  if (fs.existsSync(AUTH_FILE)) {
+    const loaded = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
+    // 이전 버전 auth.json 호환: allowedIps 없으면 빈 배열(모든 IP 허용)
+    if (!Array.isArray(loaded.allowedIps)) loaded.allowedIps = [];
+    return loaded;
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  const initial = {
+    salt,
+    hash: hashPassword(process.env.ADMIN_KEY || 'mama1234', salt),
+    isDefault: !process.env.ADMIN_KEY,
+    allowedIps: [], // 비어 있으면 모든 IP에서 접속 허용
+    updatedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(AUTH_FILE, JSON.stringify(initial, null, 2), 'utf8');
+  return initial;
+};
+let auth = loadAuth();
+const saveAuth = () => fs.writeFileSync(AUTH_FILE, JSON.stringify(auth, null, 2), 'utf8');
+
+const verifyPassword = (pw) => {
+  const candidate = Buffer.from(hashPassword(pw || '', auth.salt), 'hex');
+  const actual = Buffer.from(auth.hash, 'hex');
+  return candidate.length === actual.length && crypto.timingSafeEqual(candidate, actual);
+};
+
+// 세션 토큰 저장소 (메모리 — 서버 재시작 시 전체 로그아웃)
+const SESSION_TTL = 12 * 60 * 60 * 1000;
+const sessions = new Map(); // token -> expiresAt
+const createSession = () => {
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, Date.now() + SESSION_TTL);
+  return token;
+};
+const isValidSession = (token) => {
+  const exp = sessions.get(token);
+  if (!exp) return false;
+  if (Date.now() > exp) {
+    sessions.delete(token);
+    return false;
+  }
+  return true;
+};
+
+// 로그인 시도 제한: IP당 5회 실패 시 10분 잠금
+const MAX_ATTEMPTS = 5;
+const LOCK_MS = 10 * 60 * 1000;
+const loginAttempts = new Map(); // ip -> { count, lockUntil }
+
 const requireAdmin = (req, res, next) => {
-  if (req.headers['x-admin-key'] !== ADMIN_KEY) {
+  const token = req.headers['x-admin-token'];
+  if (!token || !isValidSession(token)) {
     return res.status(401).json({ error: 'unauthorized' });
   }
   next();
 };
 
+/* ---------- 관리자 접속 IP 제한 ----------
+   auth.json의 allowedIps 배열로 관리.
+   - 빈 배열: 모든 IP 허용
+   - IP가 등록돼 있으면 목록에 있는 IP만 관리자 API(로그인 포함) 접근 가능
+   - 서버에서 직접 복구: backend/data/auth.json의 allowedIps를 []로 수정 후 재시작 */
+const normalizeIp = (ip) => {
+  let v = String(ip || '');
+  if (v.startsWith('::ffff:')) v = v.slice(7); // IPv4-mapped IPv6
+  if (v === '::1') v = '127.0.0.1'; // IPv6 localhost
+  return v;
+};
+const clientIp = (req) => normalizeIp(req.ip);
+
+const requireAllowedIp = (req, res, next) => {
+  const list = auth.allowedIps || [];
+  if (list.length === 0) return next();
+  if (list.includes(clientIp(req))) return next();
+  return res.status(403).json({ error: `허용되지 않은 IP입니다. (현재 IP: ${clientIp(req)})` });
+};
+
+// 모든 관리자 API(로그인 포함)에 IP 제한 적용
+app.use('/api/admin', requireAllowedIp);
+
 app.post('/api/admin/login', (req, res) => {
-  if ((req.body?.password || '') === ADMIN_KEY) {
-    return res.json({ ok: true, key: ADMIN_KEY });
+  const ip = req.ip || 'unknown';
+  const rec = loginAttempts.get(ip) || { count: 0, lockUntil: 0 };
+
+  if (Date.now() < rec.lockUntil) {
+    const waitMin = Math.ceil((rec.lockUntil - Date.now()) / 60000);
+    return res.status(429).json({ ok: false, error: `로그인 시도가 너무 많습니다. ${waitMin}분 후 다시 시도해주세요.` });
   }
-  res.status(401).json({ ok: false, error: '비밀번호가 올바르지 않습니다.' });
+
+  if (!verifyPassword(req.body?.password)) {
+    rec.count += 1;
+    if (rec.count >= MAX_ATTEMPTS) {
+      rec.lockUntil = Date.now() + LOCK_MS;
+      rec.count = 0;
+    }
+    loginAttempts.set(ip, rec);
+    return res.status(401).json({ ok: false, error: '비밀번호가 올바르지 않습니다.' });
+  }
+
+  loginAttempts.delete(ip);
+  res.json({ ok: true, token: createSession(), isDefaultPassword: !!auth.isDefault });
+});
+
+app.post('/api/admin/logout', requireAdmin, (req, res) => {
+  sessions.delete(req.headers['x-admin-token']);
+  res.json({ ok: true });
+});
+
+// 비밀번호 변경: 현재 비밀번호 확인 후 새 해시 저장, 기존 세션 전체 무효화
+app.post('/api/admin/password', requireAdmin, (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!verifyPassword(currentPassword)) {
+    return res.status(400).json({ ok: false, error: '현재 비밀번호가 올바르지 않습니다.' });
+  }
+  const pw = String(newPassword || '');
+  if (pw.length < 8) {
+    return res.status(400).json({ ok: false, error: '새 비밀번호는 8자 이상이어야 합니다.' });
+  }
+  if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) {
+    return res.status(400).json({ ok: false, error: '새 비밀번호는 영문과 숫자를 모두 포함해야 합니다.' });
+  }
+  if (verifyPassword(pw)) {
+    return res.status(400).json({ ok: false, error: '현재 비밀번호와 다른 비밀번호를 사용해주세요.' });
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  auth = {
+    ...auth, // allowedIps 등 기존 설정 유지
+    salt,
+    hash: hashPassword(pw, salt),
+    isDefault: false,
+    updatedAt: new Date().toISOString(),
+  };
+  saveAuth();
+  sessions.clear();
+  res.json({ ok: true, token: createSession() });
+});
+
+// 접속 허용 IP 목록 조회
+app.get('/api/admin/allowed-ips', requireAdmin, (req, res) => {
+  res.json({ allowedIps: auth.allowedIps || [], currentIp: clientIp(req) });
+});
+
+// 접속 허용 IP 목록 저장 (빈 배열 = 모든 IP 허용)
+app.put('/api/admin/allowed-ips', requireAdmin, (req, res) => {
+  const input = req.body?.allowedIps;
+  if (!Array.isArray(input)) {
+    return res.status(400).json({ ok: false, error: 'allowedIps는 배열이어야 합니다.' });
+  }
+  const ipPattern = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]+)$/;
+  const list = [...new Set(input.map((ip) => normalizeIp(String(ip).trim())).filter(Boolean))];
+  const invalid = list.filter((ip) => !ipPattern.test(ip));
+  if (invalid.length) {
+    return res.status(400).json({ ok: false, error: `잘못된 IP 형식: ${invalid.join(', ')}` });
+  }
+
+  // 잠금 방지: 목록이 비어있지 않은데 현재 접속 IP가 빠져 있으면 자동 추가
+  let selfAdded = false;
+  const me = clientIp(req);
+  if (list.length > 0 && !list.includes(me)) {
+    list.push(me);
+    selfAdded = true;
+  }
+
+  auth = { ...auth, allowedIps: list, updatedAt: new Date().toISOString() };
+  saveAuth();
+  res.json({ ok: true, allowedIps: list, currentIp: me, selfAdded });
 });
 
 // 이미지 업로드
@@ -159,14 +337,29 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}_${safe}`);
   },
 });
+// 확장자 + MIME 화이트리스트 (SVG는 스크립트를 포함할 수 있어 XSS 위험 → 차단)
+const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const ok = ALLOWED_EXT.includes(ext) && ALLOWED_MIME.includes(file.mimetype);
+    if (!ok) req.uploadRejected = true;
+    cb(null, ok);
+  },
 });
 
 app.post('/api/admin/upload', requireAdmin, upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: '이미지 파일이 필요합니다.' });
+  if (!req.file) {
+    return res.status(400).json({
+      error: req.uploadRejected
+        ? 'jpg, png, gif, webp 형식의 이미지만 업로드할 수 있습니다.'
+        : '이미지 파일이 필요합니다.',
+    });
+  }
   res.json({ path: `/uploads/${req.file.filename}` });
 });
 

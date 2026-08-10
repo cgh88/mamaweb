@@ -11,3 +11,6 @@ out/
 # env
 .env
 .env.local
+
+# 관리자 비밀번호 해시 (커밋 금지)
+backend/data/auth.json
