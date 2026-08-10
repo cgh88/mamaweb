@@ -30,6 +30,9 @@
 
 html {
   scroll-behavior: smooth;
+  /* 화면 밖(오른쪽)에 대기 중인 모바일 드로어 등으로 가로 스크롤이 생기는 것을 차단.
+     body가 아닌 html에만 적용해야 sticky 탭이 정상 동작함 */
+  overflow-x: hidden;
 }
 
 body {
