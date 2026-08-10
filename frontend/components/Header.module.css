@@ -192,9 +192,7 @@
   background: #fff;
   z-index: 99;
   transform: translateX(100%);
-  /* 닫혀 있을 때는 화면에서 완전히 제외해 가로 스크롤 유발을 막음 */
-  visibility: hidden;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.35s;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   padding: calc(20px + env(safe-area-inset-top, 0px))
     calc(24px + env(safe-area-inset-right, 0px))
     calc(40px + env(safe-area-inset-bottom, 0px)) 24px;
@@ -203,7 +201,6 @@
 
 .drawer.open {
   transform: translateX(0);
-  visibility: visible;
 }
 
 .drawerTop {

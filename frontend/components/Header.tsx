@@ -46,6 +46,10 @@ const NAV = [
 export default function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  // drawerMounted: DOM 존재 여부 / drawerOpen: 슬라이드 인 상태
+  // 닫혀 있을 때는 DOM에서 완전히 제거해야 모바일 브라우저가 화면 밖 요소를
+  // 페이지 폭으로 계산해 레이아웃이 어긋나는 문제를 막을 수 있음
+  const [drawerMounted, setDrawerMounted] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -55,9 +59,24 @@ export default function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  const openDrawer = () => {
+    setDrawerMounted(true);
+    // 마운트 직후 다음 틱에 open 처리해야 슬라이드 인 트랜지션이 걸림
+    setTimeout(() => setDrawerOpen(true), 20);
+  };
+
+  const closeDrawer = () => setDrawerOpen(false);
+
   useEffect(() => {
-    setDrawerOpen(false);
+    closeDrawer();
   }, [pathname]);
+
+  // 닫기 애니메이션이 끝난 뒤 DOM에서 제거
+  useEffect(() => {
+    if (drawerOpen || !drawerMounted) return;
+    const timer = setTimeout(() => setDrawerMounted(false), 350);
+    return () => clearTimeout(timer);
+  }, [drawerOpen, drawerMounted]);
 
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? 'hidden' : '';
@@ -98,48 +117,47 @@ export default function Header() {
           📞 전화주문
         </a>
 
-        <button
-          type="button"
-          aria-label="메뉴 열기"
-          className={styles.moBtn}
-          onClick={() => setDrawerOpen(true)}
-        >
+        <button type="button" aria-label="메뉴 열기" className={styles.moBtn} onClick={openDrawer}>
           <span />
           <span />
           <span />
         </button>
       </div>
 
-      {/* mobile drawer */}
-      <div
-        className={`${styles.drawerBackdrop} ${drawerOpen ? styles.open : ''}`}
-        onClick={() => setDrawerOpen(false)}
-      />
-      <aside className={`${styles.drawer} ${drawerOpen ? styles.open : ''}`}>
-        <div className={styles.drawerTop}>
-          <img src="/img/logo.png" alt="마마치킨" style={{ height: 34 }} />
-          <button type="button" aria-label="닫기" onClick={() => setDrawerOpen(false)}>
-            ✕
-          </button>
-        </div>
-        {NAV.map((item) => (
-          <div key={item.href} className={styles.drawerGroup}>
-            <Link href={item.href} className={styles.drawerTitle}>
-              {item.label}
-            </Link>
-            <div className={styles.drawerSub}>
-              {item.sub.map((s) => (
-                <Link key={s.label} href={s.href}>
-                  {s.label}
-                </Link>
-              ))}
+      {/* mobile drawer — 닫혀 있을 때는 렌더링하지 않음 */}
+      {drawerMounted && (
+        <>
+          <div
+            className={`${styles.drawerBackdrop} ${drawerOpen ? styles.open : ''}`}
+            onClick={closeDrawer}
+          />
+          <aside className={`${styles.drawer} ${drawerOpen ? styles.open : ''}`}>
+            <div className={styles.drawerTop}>
+              <img src="/img/logo.png" alt="마마치킨" style={{ height: 34 }} />
+              <button type="button" aria-label="닫기" onClick={closeDrawer}>
+                ✕
+              </button>
             </div>
-          </div>
-        ))}
-        <a href="tel:02-703-7979" className={`btn btn-primary ${styles.drawerCall}`}>
-          📞 02-703-7979
-        </a>
-      </aside>
+            {NAV.map((item) => (
+              <div key={item.href} className={styles.drawerGroup}>
+                <Link href={item.href} className={styles.drawerTitle}>
+                  {item.label}
+                </Link>
+                <div className={styles.drawerSub}>
+                  {item.sub.map((s) => (
+                    <Link key={s.label} href={s.href}>
+                      {s.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <a href="tel:02-703-7979" className={`btn btn-primary ${styles.drawerCall}`}>
+              📞 02-703-7979
+            </a>
+          </aside>
+        </>
+      )}
     </header>
   );
 }
