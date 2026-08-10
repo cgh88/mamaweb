@@ -13,7 +13,7 @@ export default function Footer() {
       <div className="container">
         <div className={styles.top}>
           <div className={styles.brandCol}>
-            <img src="/img/f-logo.png" alt="마마치킨" className={styles.logo} />
+            <img src="/img/f-logo.png" alt="마마치킨" width={270} height={48} className={styles.logo} />
             <div className={styles.tel}>
               <span>전화주문</span>
               <a href="tel:02-703-7979">02-703-7979</a>

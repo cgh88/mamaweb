@@ -26,6 +26,8 @@ const criticalCss = `
   html { overflow-x: hidden; }
   body { max-width: 100%; }
   img { max-width: 100%; }
+  /* 헤더 로고: CSS 청크 적용 전에도 원본(453px)이 아닌 축소 크기로 그려지게 함 */
+  header img { height: 40px; width: auto; }
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

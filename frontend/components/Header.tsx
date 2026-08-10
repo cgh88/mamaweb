@@ -91,8 +91,10 @@ export default function Header() {
   return (
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
       <div className={`container ${styles.inner}`}>
+        {/* width/height 명시: 스타일 적용 전 원본 크기(453px)로 그려져
+            페이지 폭이 화면보다 넓어지는 것을 방지 */}
         <Link href="/" className={styles.logo}>
-          <img src="/img/logo.png" alt="마마치킨" />
+          <img src="/img/logo.png" alt="마마치킨" width={183} height={40} />
         </Link>
 
         <nav className={styles.nav}>
@@ -133,7 +135,7 @@ export default function Header() {
           />
           <aside className={`${styles.drawer} ${drawerOpen ? styles.open : ''}`}>
             <div className={styles.drawerTop}>
-              <img src="/img/logo.png" alt="마마치킨" style={{ height: 34 }} />
+              <img src="/img/logo.png" alt="마마치킨" width={156} height={34} style={{ height: 34 }} />
               <button type="button" aria-label="닫기" onClick={closeDrawer}>
                 ✕
               </button>
