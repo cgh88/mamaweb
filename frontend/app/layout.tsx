@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   title: '마마치킨 | MAMA CHICKEN',
   description: '마마치킨, 마포구치킨, 마포맛집, 미국식치킨, MAMACHICKEN, 치킨배달',
   icons: { icon: '/img/favicon.ico' },
+};
+
+// viewportFit: 'cover' — 노치/펀치홀 기기에서 env(safe-area-inset-*) 값을 활성화
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -38,6 +38,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  /* 엣지 디스플레이/컷아웃 기기에서 삼선 버튼이 safe zone 밖으로 나가지 않도록 */
+  padding-left: calc(24px + env(safe-area-inset-left, 0px));
+  padding-right: calc(24px + env(safe-area-inset-right, 0px));
 }
 
 .logo img {
@@ -148,7 +151,13 @@
   display: none;
   flex-direction: column;
   gap: 5px;
-  padding: 8px;
+  /* 터치 타겟 44x44 확보 */
+  padding: 10px;
+  margin: -10px -10px -10px 0;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
 }
 
 .moBtn span {
@@ -184,7 +193,9 @@
   z-index: 99;
   transform: translateX(100%);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  padding: 20px 24px 40px;
+  padding: calc(20px + env(safe-area-inset-top, 0px))
+    calc(24px + env(safe-area-inset-right, 0px))
+    calc(40px + env(safe-area-inset-bottom, 0px)) 24px;
   overflow-y: auto;
 }
 
