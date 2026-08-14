@@ -279,14 +279,17 @@
     gap: 12px;
   }
 
-  /* 모바일 전용 배치: 햄버거를 왼쪽, 로고를 오른쪽으로 (PC는 DOM 순서 그대로 유지) */
+  /* 모바일 전용 배치: 햄버거는 왼쪽, 로고는 헤더 정중앙(PC는 DOM 순서 그대로 유지) */
   .moBtn {
     order: -1;
   }
 
+  /* .header가 position: fixed로 이미 포지셔닝 컨텍스트이므로,
+     여기 기준으로 절대 배치하면 햄버거 버튼 폭과 무관하게 항상 정확히 중앙에 위치함 */
   .logo {
-    order: 1;
-    /* 로고가 우측 끝에 바짝 붙어 보이는 것을 방지하기 위해 왼쪽으로 60px 이동 */
-    margin-right: 60px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
   }
 }
