@@ -49,6 +49,10 @@ app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+// 업로드 이미지 서빙: 운영 모드(next start)는 서버 시작 후 public/에 추가된 파일을 제공하지 않으므로
+// Next가 /uploads/* 를 백엔드로 프록시하고 여기서 직접 제공 (파일명에 타임스탬프가 있어 장기 캐시 가능)
+app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true, index: false }));
+
 // 카테고리 + 소스치킨 서브탭 목록
 app.get('/api/menu/categories', (_req, res) => {
   res.json({ categories: CATEGORIES, sauceTabs });

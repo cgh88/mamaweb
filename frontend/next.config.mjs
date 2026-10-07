@@ -13,6 +13,11 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${BACKEND_URL}/api/:path*`,
       },
+      {
+        // 관리자 업로드 이미지는 백엔드가 제공 (운영 모드에서 런타임 추가 파일 404 방지)
+        source: '/uploads/:path*',
+        destination: `${BACKEND_URL}/uploads/:path*`,
+      },
     ];
   },
 };
