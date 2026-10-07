@@ -89,7 +89,7 @@ export default function BannerAdmin() {
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/gif,image/webp"
             onChange={onFile}
             style={{ display: 'none' }}
             disabled={uploading}

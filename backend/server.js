@@ -352,7 +352,23 @@ const upload = multer({
   },
 });
 
-app.post('/api/admin/upload', requireAdmin, upload.single('file'), (req, res) => {
+// multer 오류(용량 초과 등)를 Express 기본 HTML 500 대신 JSON 메시지로 반환
+const uploadSingle = (req, res, next) =>
+  upload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({
+        error:
+          err.code === 'LIMIT_FILE_SIZE'
+            ? '이미지 용량이 10MB를 초과합니다. 용량을 줄여서 다시 업로드해주세요.'
+            : `업로드 요청이 올바르지 않습니다. (${err.code})`,
+      });
+    }
+    console.error('[upload]', err);
+    return res.status(500).json({ error: '이미지 저장 중 오류가 발생했습니다.' });
+  });
+
+app.post('/api/admin/upload', requireAdmin, uploadSingle, (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       error: req.uploadRejected

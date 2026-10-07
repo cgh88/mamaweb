@@ -47,7 +47,7 @@ export default function ImageField({ label, value, onChange }: Props) {
             value={value}
             onChange={(e) => onChange(e.target.value)}
           />
-          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={onFile} />
           {uploading && <span style={{ fontSize: '0.82rem' }}>업로드 중...</span>}
           {error && <span className={styles.error}>{error}</span>}
         </div>
