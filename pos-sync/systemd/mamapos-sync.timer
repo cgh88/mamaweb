@@ -1,0 +1,10 @@
+[Unit]
+Description=마마치킨 POS 매출 수집 - 매일 06:00 KST
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 Asia/Seoul
+# 서버가 꺼져 있어 놓친 실행은 켜진 직후 실행
+Persistent=true
+
+[Install]
+WantedBy=timers.target

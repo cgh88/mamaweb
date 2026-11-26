@@ -1,0 +1,11 @@
+[Unit]
+Description=마마치킨 POS 매출 수집 (스마일비즈 API -> PostgreSQL)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mamaweb/pos-sync
+ExecStart=/usr/bin/python3 /home/ubuntu/mamaweb/pos-sync/pos_sync.py
+TimeoutStartSec=30min
