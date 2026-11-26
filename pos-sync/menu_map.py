@@ -194,6 +194,33 @@ def detect_flavor(text):
     return '후라이드', '후라이드'
 
 
+# 버거 표준명: 매장 POS 이름 기준 (배달앱의 '통다리살 치킨버거' = 매장 '통다리살버거')
+BURGER_NAMES = {
+    '통다리살버거': '통다리살버거', '슈퍼통다리살버거': '슈퍼통다리살버거',
+    '통살치킨버거': '통살치킨버거', '슈퍼통살치킨버거': '슈퍼통살치킨버거',
+    '통통새우버거': '통통새우버거', '프리미엄버거': '프리미엄 버거',
+}
+# 매장 POS 세트 표기의 앞부분 → 버거 (예: '일반+감자튀김+콜라' = 통다리살버거 세트)
+SET_PREFIX = {'일반': '통다리살버거', '슈퍼': '슈퍼통다리살버거', '프리미엄': '프리미엄버거'}
+
+
+def classify_burger(n):
+    """정규화된 이름 n → (분류, 표준명) 또는 None. 10,000원 미만 품목에만 사용"""
+    # 버켓 세트: '버켓/치킨(다리3)+감자튀김+음료', '치킨조각(다리3)+감자튀김+음료'
+    if re.match(r'(버켓|치킨p)', n) and '감자튀김' in n:  # norm()이 '조각'을 'p'로 바꿈
+        m = re.search(r'(다리|윙)(\d+)', n)
+        return '세트·기타', f'버켓 세트 ({m.group(1)}{m.group(2)})' if m else '버켓 세트'
+    is_set = '세트' in n or re.search(r'감자튀김(콜라|음료)', n)
+    if '버거' not in n and not is_set:
+        return None
+    base = re.sub(r'세트|감자튀김(콜라|음료)\d*', '', n).replace('통다리살치킨버거', '통다리살버거')
+    base = SET_PREFIX.get(base, base)
+    name = BURGER_NAMES.get(base)
+    if is_set:
+        return '버거', f'{name} 세트' if name else None
+    return ('버거', name) if name else ('버거', None) if '버거' in n else None
+
+
 def find(table, text):
     return next((name for name, pat in table if re.search(pat, text)), None)
 
@@ -255,6 +282,13 @@ class Classifier:
 
         if src == 'POS' and price == 0 and REQUEST.search(n):
             return {**r, 'is_option': True, 'category': '요청사항', 'std': None}
+
+        # 버거·버켓 세트 / 버거 단품 (10,000원 미만) — '콜라'가 들어 있어 음료로 오분류되던 세트 포함
+        if price < 10000:
+            burger = classify_burger(n)
+            if burger:
+                category, std = burger
+                return {**r, 'category': category, 'std': std}
 
         # 세트·플래터·이벤트 (치킨+사이드 묶음 등)
         if price >= 10000 and SET_MENU.search(text):
