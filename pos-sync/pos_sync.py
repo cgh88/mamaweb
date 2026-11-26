@@ -196,6 +196,13 @@ def main():
                 except Exception:  # 한 매장·일자가 실패해도 나머지는 계속
                     failed += 1
                     log.exception('%s %s 수집 실패', store, day)
+        # 새로 나온 메뉴명을 홈페이지 메뉴로 자동 매핑 (실패해도 수집 결과는 유지)
+        try:
+            import menu_map
+            menu_map.update(conn, log=log.info)
+        except Exception:
+            failed += 1
+            log.exception('메뉴 매핑 실패')
     finally:
         conn.close()
     log.info('수집 종료: 실패 %d건', failed)
