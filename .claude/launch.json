@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "dashboard"],
+      "port": 3100
     }
   ]
 }
