@@ -20,3 +20,6 @@ pos-sync/migrate/*.tsv
 
 # 로컬 전용 접속 정보 (비밀번호 포함, 커밋 금지)
 *.local.txt
+
+# Python 캐시
+__pycache__/
