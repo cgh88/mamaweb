@@ -6,6 +6,8 @@
   python3 pos_sync.py --date 20261125         # 특정 일자
   python3 pos_sync.py --from 20261101 --to 20261125 --store 7915301   # 기간/매장 지정 (과거 데이터 채우기)
 
+- API 조회 가능 기간: 현재 월 기준 2년 전 1일부터 (예: 2026-11 → 2024-11-01~). 그 이전은 기존 MySQL에서 이관
+
 - 매장·일자 단위로 한 트랜잭션: 기존 행 삭제 → 전 페이지 재수집 후 저장. 여러 번 실행해도 중복 없음
   (도중에 API 오류가 나면 롤백되어 기존 데이터 유지)
 - API가 '조회된 데이터가 없습니다'를 주면 기존 데이터를 지우지 않고 건너뜀
@@ -102,8 +104,15 @@ def fetch_page(session, api, store, sale_date, page):
     for attempt in range(1, 4):
         try:
             res = session.get(url, params=params, timeout=30)
+            try:
+                data = res.json()
+            except ValueError:
+                data = None
+            # 업무 오류(예: EXT_COMM-2010 조회 가능 기간 초과)는 HTTP 500 + JSON으로 오며 재시도해도 같으므로 바로 반환
+            if data is not None and (res.ok or data.get('CODE')):
+                return data
             res.raise_for_status()
-            return res.json()
+            raise ValueError('JSON이 아닌 응답')
         except (requests.RequestException, ValueError) as err:
             if attempt == 3:
                 raise
