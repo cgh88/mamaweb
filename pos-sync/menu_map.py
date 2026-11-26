@@ -1,4 +1,7 @@
-"""POS 주문상세 메뉴 표준화: 원본 메뉴명 → 홈페이지 정상 메뉴(mamaweb.menu_items) 매핑
+"""POS 기준정보: 매장(store_info) + 주문상세 메뉴 표준화(원본 메뉴명 → 홈페이지 정상 메뉴 mamaweb.menu_items)
+
+  store_info         POS 매장코드 → 매장명/운영상태 (STORE_SEED로 처음 한 번 등록, 이후 DB에서 수정)
+  v_pos_order        주문 헤더 + 매장명 + 판매유형명 — 매출 금액 집계용
 
 배달앱 주문은 메뉴코드가 앱별 공용 코드(BM2101, CP2101 …)이고 실제 메뉴명은 앱마다 다르게 적힌 자유 텍스트(id_desc)라
 그대로 집계하면 같은 메뉴가 수십 가지 표기로 쪼개진다. 매장 POS 메뉴도 같은 메뉴가 코드·분류별로 중복된다.
@@ -36,7 +39,25 @@ import psycopg2
 # 판매채널: id_code 접두어 → 이름 (숫자 코드 = 매장 POS 메뉴)
 CHANNELS = {'BM': '배달의민족', 'CP': '쿠팡이츠', 'YG': '요기요', 'BDP': '배달앱(BDP)', 'SMTDP': '배달대행'}
 
+# 매장 기본 정보 — 처음 한 번만 넣고(ON CONFLICT DO NOTHING), 이후 수정은 DB의 store_info에서 (코드가 덮어쓰지 않음)
+# (POS 매장코드, 매장명, 상태, 비고)
+STORE_SEED = [
+    ('7915301', '독립문점', '운영', None),
+    ('7915302', '고려대점', '운영', None),
+    ('7740030', '마포점', '폐점', '2026-05-24 마지막 매출'),
+    ('7410170', '마포점', '폐점', '마포점 이전 POS 코드로 추정 (2024-01-15 종료, 다음 날 7740030 시작) — 확인 필요'),
+]
+SALE_TYPES = {'1001': '매장', '1002': '배달', '1003': '포장'}
+
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS store_info (
+  store_code TEXT PRIMARY KEY,             -- POS 매장코드 (pos_order_*.store_code)
+  store_name TEXT NOT NULL,                -- 매장명 (같은 매장이 코드를 바꾼 경우 같은 이름 → 이름으로 묶어 집계)
+  status     TEXT NOT NULL DEFAULT '운영' CHECK (status IN ('운영', '폐점')),
+  note       TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS web_menu_items (
   id INTEGER PRIMARY KEY, category TEXT NOT NULL, sub_tab TEXT, name TEXT NOT NULL, name_en TEXT,
   synced_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -71,12 +92,25 @@ SELECT
                             ELSE '미분류: ' || btrim(d.id_desc) END) AS std_name,
   COALESCE(m.category, CASE WHEN COALESCE(btrim(d.id_desc), '') = '' THEN '할인·조정' ELSE '미분류' END) AS category,
   m.cut, m.flavor,
-  d.qty, d.qtyprice, d.sumprice, d.dc_reason_desc
+  d.qty, d.qtyprice, d.sumprice, d.dc_reason_desc,
+  COALESCE(s.store_name, d.store_code)                   AS store_name
 FROM pos_order_detail d
+LEFT JOIN store_info s ON s.store_code = d.store_code
 LEFT JOIN pos_menu_map m
   ON m.src = CASE WHEN d.id_code ~ '^[A-Z]' THEN 'APP' ELSE 'POS' END
  AND m.menu_group = CASE WHEN d.id_code ~ '^[A-Z]' THEN '' ELSE COALESCE(d.id_menuname, '') END
  AND m.item_text = btrim(d.id_desc);
+
+-- 주문 헤더 + 매장명 + 판매유형명. 매출 금액(결제액, 취소는 음수로 차감) 집계는 이 뷰에서
+CREATE OR REPLACE VIEW v_pos_order AS
+SELECT
+  h.store_code, COALESCE(s.store_name, h.store_code) AS store_name, COALESCE(s.status, '미등록') AS store_status,
+  h.sale_date, h.order_date, h.inv_seq, h.pos_no,
+  h.sale_type, COALESCE((%(sale_type_case)s), h.sale_type) AS sale_type_name,
+  h.sale_stat, (h.sale_stat = 'B') AS is_cancel,
+  h.grand_total, h.net_amt, h.dc_amt, h.qty_sum
+FROM pos_order_header h
+LEFT JOIN store_info s ON s.store_code = h.store_code;
 """
 
 
@@ -287,9 +321,22 @@ def sync_web_menu(conn):
     return [(r[0], r[1], r[2], r[3]) for r in rows]
 
 
+def sale_type_case():
+    return 'CASE ' + ' '.join(f"WHEN h.sale_type = '{k}' THEN '{v}'" for k, v in SALE_TYPES.items()) + ' END'
+
+
 def update(conn, reclassify=False, log=print):
     with conn, conn.cursor() as cur:
-        cur.execute(SCHEMA % {'channel_case': channel_case()})
+        cur.execute(SCHEMA % {'channel_case': channel_case(), 'sale_type_case': sale_type_case()})
+        cur.executemany(
+            'INSERT INTO store_info (store_code, store_name, status, note) VALUES (%s, %s, %s, %s) ON CONFLICT (store_code) DO NOTHING',
+            STORE_SEED,
+        )
+        # 새 매장코드가 수집되면 미등록으로 표시해 두고 로그로 알림 (매장명은 store_info에서 입력)
+        cur.execute("""SELECT DISTINCT store_code FROM pos_order_header
+                       WHERE store_code NOT IN (SELECT store_code FROM store_info)""")
+        for (code,) in cur.fetchall():
+            log(f'store_info에 없는 매장코드 {code}: 매장명을 등록하세요')
     web_menu = sync_web_menu(conn)
     clf = Classifier(web_menu)
     with conn, conn.cursor() as cur:
