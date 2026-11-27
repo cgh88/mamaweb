@@ -44,6 +44,12 @@ export default async function ChannelPage({ searchParams }) {
   const appTakeout = chans.filter((c) => c !== '매장').map((c) => [c, cell('포장', c).orders]).filter(([, n]) => n);
   const appTakeoutOrders = appTakeout.reduce((s, [, n]) => s + n, 0);
   const allOrders = TYPES.reduce((s, t) => s + typeTotal(t).orders, 0);
+  // 매장 POS 주문 구분 (테이블 식사·키오스크·테이블 포장·방문 포장·전화 배달)
+  const posKinds = Object.values(matrix.filter((r) => r.channel === '매장').reduce((m, r) => {
+    const k = m[r.kind] || (m[r.kind] = { kind: r.kind, type: r.type, rev: 0, orders: 0 });
+    k.rev += r.rev; k.orders += Number(r.orders);
+    return m;
+  }, {})).sort((a, b) => b.orders - a.orders);
 
   // 월별 판매유형 비중
   const months = [...new Set(trend.map((r) => r.m))];
@@ -119,7 +125,7 @@ export default async function ChannelPage({ searchParams }) {
               ))}
             </div>
             {view === 'app' && <div className="small muted">주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 주문은 앱별 코드, 그 외는 매장 POS).</div>}
-            {view === 'type' && <div className="small muted">포장에는 방문 포장과 배민·쿠팡 포장 주문이 함께 들어갑니다. 채널별 구분은 아래 표를 보세요.</div>}
+            {view === 'type' && <div className="small muted">포장 = 방문 포장 + 테이블 포장 + 배민·쿠팡 포장, 매장 = 테이블 식사 + 키오스크. 세부 구분은 아래 표를 보세요.</div>}
           </>
         )}
       </section>
@@ -156,9 +162,25 @@ export default async function ChannelPage({ searchParams }) {
             </tbody>
           </table>
         </div>
+        {posKinds.length > 0 && (
+          <>
+            <h3 style={{ margin: '4px 0 0', fontSize: 15 }}>매장 POS 주문 구분</h3>
+            <div className="grid4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+              {posKinds.map((k) => (
+                <div key={k.kind} className="card" style={{ padding: '12px 14px' }}>
+                  <span className="small muted">{k.kind} · {k.type === '매장' ? '매장(홀)' : k.type}</span>
+                  <b className="big">{won(k.rev)}<span className="small muted" style={{ fontWeight: 500 }}> 원</span></b>
+                  <span className="small muted">{won(k.orders)}건 · 객단가 {won(k.orders ? k.rev / k.orders : 0)}원</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
         <div className="small muted">
           배달·포장은 POS 판매유형(배달 1002 · 포장 1003) 기준이며, 주문상세의 배달/포장 수량 플래그와 모두 일치합니다.
-          주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 코드가 있으면 그 앱, 없으면 매장 POS). 매장 POS의 배달은 전화 주문, 포장은 방문 포장입니다.
+          POS 판매유형이 &lsquo;매장&rsquo;이어도 테이블 그룹이 &lsquo;포장&rsquo;이면 테이블 포장으로 보고 포장에 넣습니다.
+          매장(홀)은 테이블 식사와 키오스크 주문이며, 키오스크는 매장 식사와 포장을 구분하는 값이 없습니다.
+          주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 코드가 있으면 그 앱, 없으면 매장 POS).
         </div>
       </section>
 

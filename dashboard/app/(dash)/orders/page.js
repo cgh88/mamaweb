@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth';
 import { parsePeriod, withParams } from '@/lib/period';
 import { ORDER_PAGE_SIZE, orderItems, orderList, orderSummary, storeOptions } from '@/lib/queries';
 import { won } from '@/lib/format';
-import { CHANNEL_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS, parseOrderFilters } from './filters';
+import { CHANNEL_OPTIONS, KIND_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS, parseOrderFilters } from './filters';
 import OrdersTable from './OrdersTable';
 
 export const metadata = { title: '주문 리포트 · 마마치킨' };
@@ -45,6 +45,7 @@ export default async function OrdersPage({ searchParams }) {
         selects={[
           { name: 'type', label: '판매유형', options: TYPE_OPTIONS },
           { name: 'channel', label: '주문 채널', options: CHANNEL_OPTIONS },
+          { name: 'kind', label: '주문 구분', options: KIND_OPTIONS },
           { name: 'status', label: '상태', options: STATUS_OPTIONS },
         ]}
       />

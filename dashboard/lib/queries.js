@@ -374,6 +374,7 @@ function orderFilter(p, store, f) {
   if (f.status === 'cancel') w.push('o.is_cancel');
   else if (f.status === 'ok') w.push('NOT o.is_cancel');
   if (f.channel) { params.push(f.channel); w.push(`o.order_channel = $${params.length}`); }
+  if (f.kind) { params.push(f.kind); w.push(`o.order_kind = $${params.length}`); }
   if (f.search) {
     params.push(`%${f.search.replace(/[\\%_]/g, '\\$&')}%`);
     w.push(`EXISTS (SELECT 1 FROM v_pos_sales_item i WHERE i.inv_seq = o.inv_seq

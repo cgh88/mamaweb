@@ -41,8 +41,10 @@ CHANNELS = {'BM': '배달의민족', 'CP': '쿠팡이츠', 'YG': '요기요', 'B
 # 주문 단위 배달앱 판정에 쓰는 코드 (SMTDP 배달대행은 전화 주문의 배달팁 행이라 제외)
 DELIVERY_APPS = ['BM', 'CP', 'YG', 'BDP']
 APP_SHORT = {'BM': '배민', 'CP': '쿠팡', 'YG': '요기요', 'BDP': 'BDP'}
-# 배달앱이 아닌 주문(매장 POS 직접)의 주문 구분
-POS_KINDS = {'1001': '홀', '1002': '전화 배달', '1003': '방문 포장'}
+# 배달앱이 아닌 주문(매장 POS 직접)의 주문 구분. 판매유형 '매장'(1001)은 테이블 그룹·POS 번호로 다시 나눔 (v_pos_order)
+POS_KINDS = {'1002': '전화 배달', '1003': '방문 포장'}
+KIOSK_POS = ['50']          # 고려대점 키오스크 (테이블 없음, 매장 식사/포장 구분 값 없음)
+DINE_IN_TABLE_GROUPS = ['내점', '1층', '2층']   # 테이블 식사 그룹 (마포점은 층별)
 
 # 매장 기본 정보 — 처음 한 번만 넣고(ON CONFLICT DO NOTHING), 이후 수정은 DB의 store_info에서 (코드가 덮어쓰지 않음)
 # (POS 매장코드, 매장명, 상태, 비고)
@@ -115,21 +117,33 @@ CREATE TABLE IF NOT EXISTS pos_order_app (
 -- 주문 헤더 + 매장명 + 판매유형 + 주문 채널. 매출 금액 집계는 이 뷰에서 (취소는 음수로 차감)
 --   sale_type_name: POS 판매유형 (1001 매장 / 1002 배달 / 1003 포장). 배민·쿠팡 포장 주문도 POS에 포장으로 들어오며
 --                   주문상세 qty_delivery/qty_packing 플래그와 전부 일치함 (2026-11 확인)
+--                   단, 판매유형 '매장'이라도 테이블 그룹이 '포장'이면 포장 (POS 테이블 화면에서 받은 포장 주문)
 --   order_channel : 주문상세에 배달앱 메뉴코드(BM·CP·YG·BDP)가 있으면 그 앱, 없으면 '매장'(매장 POS 직접 주문)
---   order_kind    : 채널 + 판매유형 (배민 배달·배민 포장·쿠팡 배달·쿠팡 포장·전화 배달·방문 포장·홀)
+--   order_kind    : 배민 배달·배민 포장·쿠팡 배달·쿠팡 포장·전화 배달·방문 포장·테이블 포장·테이블 식사·키오스크·매장 기타
+--                   (키오스크는 매장 식사/포장 구분 값이 없어 판매유형 '매장'으로 집계)
+--   pos_sale_type_name: POS에 찍힌 원래 판매유형 / table_group: POS 테이블 그룹명
 --   gross_amt 총매출(할인 전) / grand_total 실매출(할인 후 결제액, 부가세 포함) / sub_tot 순매출(실매출 - 부가세 tax_tot)
 CREATE OR REPLACE VIEW v_pos_order AS
 SELECT
   h.store_code, COALESCE(s.store_name, h.store_code) AS store_name, COALESCE(s.status, '미등록') AS store_status,
   h.sale_date, h.order_date, h.inv_seq, h.pos_no,
-  h.sale_type, COALESCE((%(sale_type_case)s), h.sale_type) AS sale_type_name,
+  h.sale_type,
+  CASE WHEN a.app IS NULL AND h.sale_type = '1001' AND h.tbl_cla1name = '포장' THEN '포장'
+       ELSE COALESCE((%(sale_type_case)s), h.sale_type) END AS sale_type_name,
   h.sale_stat, (h.sale_stat = 'B') AS is_cancel,
   h.grand_total, h.net_amt, h.dc_amt, h.qty_sum,
   h.sub_tot, h.tax_tot, h.gross_amt,
   h.product_amt, h.ax_card, h.ax_cash, h.ax_etc, h.ret_inv_seq, h.dc_reason_desc,
   COALESCE((%(app_case)s), '매장') AS order_channel,
   CASE WHEN a.app IS NOT NULL THEN COALESCE((%(app_short_case)s), a.app) || ' ' || COALESCE((%(sale_type_case)s), h.sale_type)
-       ELSE COALESCE((%(pos_kind_case)s), h.sale_type) END AS order_kind
+       WHEN h.sale_type = '1001' THEN
+         CASE WHEN h.tbl_cla1name = '포장' THEN '테이블 포장'
+              WHEN h.tbl_cla1name IN (%(dine_in_groups)s) THEN '테이블 식사'
+              WHEN h.pos_no IN (%(kiosk_pos)s) THEN '키오스크'
+              ELSE '매장 기타' END
+       ELSE COALESCE((%(pos_kind_case)s), h.sale_type) END AS order_kind,
+  COALESCE((%(sale_type_case)s), h.sale_type) AS pos_sale_type_name,
+  NULLIF(h.tbl_cla1name, '') AS table_group
 FROM pos_order_header h
 LEFT JOIN store_info s ON s.store_code = h.store_code
 LEFT JOIN pos_order_app a ON a.inv_seq = h.inv_seq;
@@ -402,6 +416,8 @@ def schema_params():
         'channel_case': channel_case(), 'sale_type_case': sale_type_case(), 'app_case': app_case(),
         'app_short_case': 'CASE ' + ' '.join(f"WHEN a.app = '{p}' THEN '{n}'" for p, n in APP_SHORT.items()) + ' END',
         'pos_kind_case': 'CASE ' + ' '.join(f"WHEN h.sale_type = '{k}' THEN '{v}'" for k, v in POS_KINDS.items()) + ' END',
+        'dine_in_groups': ', '.join(f"'{g}'" for g in DINE_IN_TABLE_GROUPS),
+        'kiosk_pos': ', '.join(f"'{p}'" for p in KIOSK_POS),
     }
 
 
