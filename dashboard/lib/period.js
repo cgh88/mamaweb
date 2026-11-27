@@ -37,7 +37,7 @@ const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && 
  * searchParams → { key, from, to, label, cmp, cmpFrom, cmpTo, cmpLabel }
  * cmp: 'prev' (월 단위 기간은 전월 같은 날짜, 그 외는 바로 앞 같은 길이) / 'yoy' (전년 같은 날짜)
  */
-export function parsePeriod(sp = {}, defaultKey = 'month') {
+export function parsePeriod(sp = {}, defaultKey = 'yesterday') {
   const yesterday = addDays(todayKst(), -1);
   let key = sp.period || defaultKey;
   let from;
@@ -48,11 +48,11 @@ export function parsePeriod(sp = {}, defaultKey = 'month') {
   } else {
     if (key === 'custom') key = defaultKey;
     const y = toDate(yesterday);
+    if (!PERIODS.some((x) => x.key === key)) key = defaultKey;
     if (key === 'yesterday') from = yesterday;
     else if (key === 'week') from = addDays(yesterday, -((y.getUTCDay() + 6) % 7)); // 월요일
     else if (key === 'lastmonth') {
-      const first = fmt(new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth() - 1, 1)));
-      from = first;
+      from = fmt(new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth() - 1, 1)));
       to = fmt(new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), 0)));
     } else if (key === '12w') from = addDays(yesterday, -83);
     else if (key === 'year') from = addDays(yesterday, -364);

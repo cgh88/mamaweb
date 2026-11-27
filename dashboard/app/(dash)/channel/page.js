@@ -1,3 +1,4 @@
+import ExportButton from '@/components/ExportButton';
 import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
@@ -8,10 +9,12 @@ import { pct, won } from '@/lib/format';
 
 export const metadata = { title: '채널 분석 · 마마치킨' };
 
-const COLORS = { 배달: '#E5482B', 매장: '#2F5D9E', 포장: '#E59A2F', 배달의민족: '#E5482B', 쿠팡이츠: '#E59A2F', 요기요: '#8A5BA8' };
+const COLORS = { 배달: '#E5482B', 매장: '#2F5D9E', 포장: '#E59A2F', 배달의민족: '#E5482B', 쿠팡이츠: '#E59A2F', 요기요: '#8A5BA8', '매장 홀': '#2F5D9E', '매장 포장': '#6B8F3A', '전화 배달': '#8A817A' };
+// 주문 채널 보기에서 매장 POS 직접 주문을 나눈 이름 (byApp)
+const POS_SPLIT = { '매장 홀': '매장 홀 (테이블 식사·키오스크)', '매장 포장': '매장 포장 (방문·테이블 포장)', '전화 배달': '전화 배달 (매장 POS)' };
 const colorOf = (name, i) => COLORS[name] || ['#2F5D9E', '#6B8F3A', '#8A817A'][i % 3];
 const CH_ORDER = ['배달의민족', '쿠팡이츠', '요기요', '매장'];
-const chLabel = (c) => (c === '매장' ? '매장 POS (방문·전화)' : c);
+const chLabel = (c) => (c === '매장' ? '매장 POS (홀·포장·전화)' : POS_SPLIT[c] || c);
 const TYPES = ['배달', '포장', '매장'];
 
 const total2 = (m) => m.reduce((s, r) => s + r.rev, 0);
@@ -73,7 +76,7 @@ export default async function ChannelPage({ searchParams }) {
     if (appTakeoutOrders) insights.push([`배달앱 포장 주문 ${won(appTakeoutOrders)}건 (전체 포장의 ${pct(appTakeoutOrders, typeTotal('포장').orders, 0)}%)`, appTakeout.map(([c, n]) => `${c} ${won(n)}건`).join(' · ')]);
   }
   if (view === 'app') {
-    const apps = rows.filter((r) => r.name !== '매장' && r.name !== '기타');
+    const apps = rows.filter((r) => !POS_SPLIT[r.name] && r.name !== '기타');
     // 주문이 너무 적은 채널(예: 요기요 몇 건)은 객단가 비교에서 제외
     const comparable = apps.filter((r) => r.orders >= 30);
     if (comparable.length >= 2) {
@@ -82,6 +85,9 @@ export default async function ChannelPage({ searchParams }) {
     }
     const app = apps.reduce((s, r) => s + r.rev, 0);
     insights.push([`배달앱 주문 비중 ${pct(app, total)}%`, `매장 POS(홀·포장·전화) 제외`]);
+    const hall = rows.find((r) => r.name === '매장 홀');
+    const pack = rows.find((r) => r.name === '매장 포장');
+    if (hall && pack) insights.push([`매장 POS 주문 중 포장 ${pct(pack.orders, Number(pack.orders) + Number(hall.orders), 0)}%`, `포장 ${won(pack.orders)}건 · 홀 ${won(hall.orders)}건 (키오스크는 홀로 집계)`]);
   }
   if (byStore.length >= 2) {
     const parts = byStore.slice(0, 2).map((s) => `${s.store_name} 배달 ${pct(s.delivery || 0, s.rev, 0)}%`);
@@ -95,8 +101,9 @@ export default async function ChannelPage({ searchParams }) {
           <h1>채널 분석</h1>
           <div className="muted">{p.label} · 판매유형(배달·매장·포장)과 주문 채널(배달앱)별 {amt.label} ({amt.desc})</div>
         </div>
+        <ExportButton view="channel" sp={sp} />
       </div>
-      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores} amount={amt.key} />
+      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['yesterday', 'week', 'month', 'lastmonth', '12w', 'year']} stores={stores} amount={amt.key} />
 
       <section className="panel">
         <div className="ph">
@@ -124,7 +131,7 @@ export default async function ChannelPage({ searchParams }) {
                 </div>
               ))}
             </div>
-            {view === 'app' && <div className="small muted">주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 주문은 앱별 코드, 그 외는 매장 POS).</div>}
+            {view === 'app' && <div className="small muted">주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 주문은 앱별 코드, 그 외는 매장 POS). 매장 POS 주문은 판매유형으로 홀·포장·전화 배달을 나눕니다.</div>}
             {view === 'type' && <div className="small muted">포장 = 방문 포장 + 테이블 포장 + 배민·쿠팡 포장, 매장 = 테이블 식사 + 키오스크. 세부 구분은 아래 표를 보세요.</div>}
           </>
         )}

@@ -1,3 +1,4 @@
+import ExportButton from '@/components/ExportButton';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
 import { parsePeriod } from '@/lib/period';
@@ -60,6 +61,7 @@ export default async function TimePage({ searchParams }) {
           <h1>시간 분석</h1>
           <div className="muted">{p.label} · 요일·시간대별 주문 패턴 (주문 접수 시각, 취소 제외)</div>
         </div>
+        <ExportButton view="time" sp={sp} />
       </div>
       <FilterBar
         periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores} amount={metric === 'orders' ? undefined : amt.key}

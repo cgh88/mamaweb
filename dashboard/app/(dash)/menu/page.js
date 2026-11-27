@@ -1,3 +1,4 @@
+import ExportButton from '@/components/ExportButton';
 import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
@@ -39,8 +40,9 @@ export default async function MenuPage({ searchParams }) {
           <h1>메뉴 분석</h1>
           <div className="muted">{p.label} · 배달앱마다 다른 메뉴명을 홈페이지 정상 메뉴로 묶어 집계 (수량 기준, 옵션 제외)</div>
         </div>
+        <ExportButton view="menu" sp={sp} />
       </div>
-      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores} extra={`비교: ${p.cmpLabel}`} />
+      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['yesterday', 'week', 'month', 'lastmonth', '12w', 'year']} stores={stores} extra={`비교: ${p.cmpLabel}`} />
       {p.from < DETAIL_COMPLETE_FROM && (
         <div className="notice">선택 기간에 2024년 10월 이전이 포함되어 있습니다. 그 기간 주문상세는 기존 수집 프로그램 문제로 일부 누락되어 메뉴 수량이 실제보다 적습니다 (매출 금액은 정상).</div>
       )}

@@ -1,15 +1,17 @@
+import ExportButton from '@/components/ExportButton';
 import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
 import { getAmount } from '@/lib/amount-server';
-import { daysBetween, parsePeriod } from '@/lib/period';
-import { daily, monthlyByStore, overview, storeBreakdown, storeOptions } from '@/lib/queries';
+import { addDays, parsePeriod } from '@/lib/period';
+import { dailyRecent, monthlyByStore, overview, storeBreakdown, storeOptions } from '@/lib/queries';
 import { delta, pct, won } from '@/lib/format';
 
 export const metadata = { title: '매출 현황 · 마마치킨' };
 
 const STORE_COLORS = ['#E5482B', '#2F5D9E', '#E59A2F', '#6B8F3A', '#8A5BA8'];
 const CLOSED_COLOR = '#BDB4AB';
+const CHART_DAYS = 14;
 
 export default async function OverviewPage({ searchParams }) {
   await requireUser();
@@ -18,7 +20,7 @@ export default async function OverviewPage({ searchParams }) {
   const store = sp.store || '';
   const amt = await getAmount();
   const [stores, ov, days, byStore, monthly] = await Promise.all([
-    storeOptions(), overview(p, store), daily(p, store), storeBreakdown(p, store), monthlyByStore(p.to, store),
+    storeOptions(), overview(p, store), dailyRecent(p.to, store, CHART_DAYS, p.cmp === 'yoy' ? 364 : 7), storeBreakdown(p, store), monthlyByStore(p.to, store),
   ]);
   const { cur, base, lfl } = ov;
   const aov = (k) => (k.orders ? k.rev / k.orders : 0);
@@ -34,29 +36,26 @@ export default async function OverviewPage({ searchParams }) {
     },
   ];
 
-  // 일별(62일 초과 시 주별) 막대 + 비교 기간 같은 순번의 값
-  const weekly = p.days > 62;
-  const bucket = (d, start) => {
-    const i = daysBetween(start, d) - 1;
-    return weekly ? Math.floor(i / 7) : i;
-  };
-  const n = weekly ? Math.ceil(p.days / 7) : p.days;
-  const curArr = Array.from({ length: n }, () => ({ rev: 0, orders: 0 }));
-  const prevArr = Array(n).fill(0);
-  for (const r of days.cur) { const b = curArr[bucket(r.d, p.from)]; if (b) { b.rev += r.rev; b.orders += r.orders; } }
-  for (const r of days.prev) { const i = bucket(r.d, p.cmpFrom); if (i < n) prevArr[i] += r.rev; }
-  const max = Math.max(1, ...curArr.map((x) => x.rev), ...prevArr) * 1.08;
-  const bars = curArr.map((x, i) => {
-    const date = new Date(Date.parse(p.from + 'T00:00:00Z') + i * (weekly ? 7 : 1) * 86400000);
-    const dow = date.getUTCDay();
+  // 일별 막대: 기간 마지막 날까지 최근 14일 (선택 기간에 든 날짜는 라벨 굵게) + 비교 점
+  //   비교: 전주 같은 요일, 전년 비교 선택 시 52주 전 같은 요일
+  const shift = p.cmp === 'yoy' ? 364 : 7;
+  const byDate = Object.fromEntries(days.map((r) => [r.d, r]));
+  const bars = Array.from({ length: CHART_DAYS }, (_, i) => {
+    const d = addDays(p.to, i - (CHART_DAYS - 1));
+    const x = byDate[d] || { rev: 0, orders: 0 };
+    const prev = byDate[addDays(d, -shift)]?.rev || 0;
+    const dow = new Date(d + 'T00:00:00Z').getUTCDay();
     return {
-      h: Math.round((x.rev / max) * 200), ph: Math.round((prevArr[i] / max) * 200),
-      label: weekly ? `${date.getUTCMonth() + 1}/${date.getUTCDate()}` : String(date.getUTCDate()),
-      weekend: !weekly && (dow === 0 || dow === 6),
-      title: `${date.toISOString().slice(0, 10)}${weekly ? ' 주' : ''} · 매출 ${won(x.rev)}원 · 주문 ${x.orders}건 · 객단가 ${won(x.orders ? x.rev / x.orders : 0)}원 · 비교 ${won(prevArr[i])}원`,
+      d, rev: x.rev, prev, inPeriod: d >= p.from,
+      label: `${+d.slice(5, 7)}/${+d.slice(8)}`,
+      weekend: dow === 0 || dow === 6,
+      title: `${d} (${'일월화수목금토'[dow]}) · 매출 ${won(x.rev)}원 · 주문 ${x.orders}건 · 객단가 ${won(x.orders ? x.rev / x.orders : 0)}원 · ${p.cmp === 'yoy' ? '52주 전' : '전주'} 같은 요일 ${won(prev)}원`,
     };
   });
-  const best = curArr.reduce((a, x, i) => (x.rev > a.rev ? { rev: x.rev, i } : a), { rev: 0, i: -1 });
+  const max = Math.max(1, ...bars.map((b) => Math.max(b.rev, b.prev))) * 1.08;
+  for (const b of bars) { b.h = Math.round((b.rev / max) * 200); b.ph = Math.round((b.prev / max) * 200); }
+  const best = bars.reduce((a, b, i) => (b.rev > a.rev ? { rev: b.rev, i } : a), { rev: 0, i: -1 });
+  const partialChart = p.from > bars[0].d;
 
   // 월별 매장 누적 막대
   const months = [...new Set(monthly.map((r) => r.m))];
@@ -81,6 +80,7 @@ export default async function OverviewPage({ searchParams }) {
           <h1>매출 현황</h1>
           <div className="muted">{p.label} · {amt.label} 기준 ({amt.desc}, 취소 차감)</div>
         </div>
+        <ExportButton view="overview" sp={sp} />
       </div>
       <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['yesterday', 'week', 'month', 'lastmonth', 'year']} cmp={p.cmp} stores={stores} amount={amt.key} />
 
@@ -99,27 +99,27 @@ export default async function OverviewPage({ searchParams }) {
 
       <section className="panel">
         <div className="ph">
-          <h2>{weekly ? '주별 매출' : '일별 매출'}</h2>
+          <h2>일별 매출 <span className="small muted" style={{ fontWeight: 400 }}>최근 {CHART_DAYS}일</span></h2>
           <div className="legend">
-            <span><i className="sw" style={{ background: '#E5482B' }} />선택 기간</span>
-            <span><i className="sw" style={{ background: '#fff', border: '2px solid #2F5D9E', borderRadius: '50%' }} />{p.cmp === 'yoy' ? '전년 같은 날' : '비교 기간 같은 순번'}</span>
-            {best.i >= 0 && <span>최고 {bars[best.i].label}{weekly ? '주' : '일'} {won(best.rev)}원</span>}
+            <span><i className="sw" style={{ background: '#E5482B' }} />매출</span>
+            <span><i className="sw" style={{ background: '#fff', border: '2px solid #2F5D9E', borderRadius: '50%' }} />{p.cmp === 'yoy' ? '52주 전 같은 요일' : '전주 같은 요일'}</span>
+            {best.i >= 0 && <span>최고 {bars[best.i].label} {won(best.rev)}원</span>}
           </div>
         </div>
         <div className="scroll">
-          <div className="chart" style={{ minWidth: Math.max(600, n * 22) }}>
+          <div className="chart" style={{ minWidth: 520 }}>
             {bars.map((b, i) => (
               <div key={i} className="col" title={b.title}>
                 <div className="plot">
                   <div className="b" style={{ height: b.h }} />
                   {b.ph > 0 && <div className="dot" style={{ bottom: b.ph }} />}
                 </div>
-                <div className={b.weekend ? 'xl we' : 'xl'}>{b.label}</div>
+                <div className={b.weekend ? 'xl we' : 'xl'} style={partialChart && b.inPeriod ? { fontWeight: 700 } : undefined}>{b.label}</div>
               </div>
             ))}
           </div>
         </div>
-        <div className="small muted">막대에 마우스를 올리면 그날 매출·주문 수·객단가와 비교 값을 볼 수 있습니다.{!weekly && ' 주말 날짜는 붉게 표시합니다.'}</div>
+        <div className="small muted">기간 마지막 날까지 최근 {CHART_DAYS}일을 보여줍니다.{partialChart && ' 선택 기간에 든 날짜는 굵게 표시합니다.'} 막대에 마우스를 올리면 그날 매출·주문 수·객단가와 비교 값을 볼 수 있습니다. 주말 날짜는 붉게 표시합니다.</div>
       </section>
 
       <div className="grid2">

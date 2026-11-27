@@ -13,6 +13,7 @@
     "inv:safety": "node scripts/seed-safety-draft.js"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "next": "^15.5.29",
     "pg": "^8.23.1",
     "react": "^19.3.1",

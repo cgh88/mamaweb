@@ -1,3 +1,4 @@
+import ExportButton from '@/components/ExportButton';
 import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
@@ -38,7 +39,10 @@ export default async function OrdersPage({ searchParams }) {
           <h1>주문 리포트</h1>
           <div className="muted">{p.label} · 주문 헤더(결제)와 주문 상세(메뉴)를 주문 단위로 조회합니다. 금액 합계는 취소를 차감한 값입니다.</div>
         </div>
-        <a className="btn" href={exportHref}>CSV 내려받기</a>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ExportButton view="orders" sp={sp} />
+          <a className="btn" href={exportHref}>CSV 내려받기</a>
+        </div>
       </div>
       <FilterBar
         periodKey={p.key} from={p.from} to={p.to} periods={['yesterday', 'week', 'month', 'lastmonth']} stores={stores}

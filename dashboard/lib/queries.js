@@ -71,17 +71,19 @@ export async function overview(p, store) {
   return { cur, base, lfl };
 }
 
-export async function daily(p, store) {
+/** 메인 일별 막대: to까지 최근 days일 + 비교(전주 같은 요일 / 52주 전 같은 요일) */
+export async function dailyRecent(to, store, days, shiftDays) {
   const c = await revCol();
-  const cp = [p.from, p.to];
-  const pp = [p.cmpFrom, p.cmpTo];
-  const [cur, prev] = await Promise.all([
-    q(`SELECT sale_date AS d, sum(${c}) AS rev, count(*) FILTER (WHERE NOT is_cancel) AS orders
-       FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, cp)} GROUP BY 1 ORDER BY 1`, cp),
-    q(`SELECT sale_date AS d, sum(${c}) AS rev
-       FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, pp)} GROUP BY 1 ORDER BY 1`, pp),
-  ]);
-  return { cur, prev };
+  const params = [to, days - 1, shiftDays];
+  return q(
+    `SELECT sale_date AS d, sum(${c}) AS rev, count(*) FILTER (WHERE NOT is_cancel) AS orders
+     FROM v_pos_order
+     WHERE (sale_date BETWEEN $1::date - $2::int AND $1::date
+            OR sale_date BETWEEN $1::date - $2::int - $3::int AND $1::date - $3::int)
+       AND ${storeWhere(store, params)}
+     GROUP BY 1 ORDER BY 1`,
+    params,
+  );
 }
 
 export async function storeBreakdown(p, store) {
@@ -134,7 +136,12 @@ export async function byApp(from, to, store) {
   const c = await revCol();
   const params = [from, to];
   return q(
-    `SELECT o.order_channel AS name, sum(o.${c}) AS rev,
+    // 매장 POS 직접 주문은 홀(테이블 식사·키오스크) / 포장(방문·테이블 포장) / 전화 배달로 나눔
+    `SELECT CASE WHEN o.order_channel <> '매장' THEN o.order_channel
+                 WHEN o.sale_type_name = '배달' THEN '전화 배달'
+                 WHEN o.sale_type_name = '포장' THEN '매장 포장'
+                 ELSE '매장 홀' END AS name,
+            sum(o.${c}) AS rev,
             count(*) FILTER (WHERE NOT o.is_cancel) AS orders, count(*) FILTER (WHERE o.is_cancel) AS cancels
      FROM v_pos_order o
      WHERE o.sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params, 'o')}
@@ -422,5 +429,30 @@ export async function orderItems(invSeqs) {
     `SELECT inv_seq, inv_nos, id_code, item_text, std_name, category, is_option, qty, qtyprice, sumprice, dc_reason_desc
      FROM v_pos_sales_item WHERE inv_seq = ANY($1) ORDER BY inv_seq, inv_nos`,
     [invSeqs],
+  );
+}
+
+// ---------------------------------------------------------------- 엑셀 내보내기 원자료
+/** 일자 × 매장 × 판매유형 매출 (세 가지 금액 기준 모두) */
+export async function exportDailyStore(p, store) {
+  const params = [p.from, p.to];
+  return q(
+    `SELECT sale_date, store_name, sale_type_name,
+            count(*) FILTER (WHERE NOT is_cancel) AS orders, count(*) FILTER (WHERE is_cancel) AS cancels,
+            sum(gross_amt) AS gross, sum(grand_total) AS paid, sum(sub_tot) AS net, sum(tax_tot) AS tax
+     FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params)}
+     GROUP BY 1, 2, 3 ORDER BY 1, 2, 3`,
+    params,
+  );
+}
+
+/** 메뉴별 판매 수량 전체 (옵션 제외, 매장별) */
+export async function exportMenuSales(p, store) {
+  const params = [];
+  const w = itemWhere(p.from, p.to, store, params);
+  return q(
+    `SELECT store_name, category, std_name, sum(qty) AS qty, sum(sumprice) AS list_amt
+     FROM v_pos_sales_item WHERE ${w} GROUP BY 1, 2, 3 HAVING sum(qty) <> 0 ORDER BY 1, 2, sum(qty) DESC`,
+    params,
   );
 }
