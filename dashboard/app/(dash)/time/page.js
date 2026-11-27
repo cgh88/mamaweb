@@ -1,6 +1,7 @@
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
 import { parsePeriod } from '@/lib/period';
+import { getAmount } from '@/lib/amount-server';
 import { heatmap, storeOptions } from '@/lib/queries';
 import { WEEKDAYS, pct, won } from '@/lib/format';
 
@@ -22,6 +23,7 @@ export default async function TimePage({ searchParams }) {
   const p = parsePeriod(sp, '12w');
   const store = sp.store || '';
   const metric = sp.metric === 'rev' ? 'rev' : sp.metric === 'aov' ? 'aov' : 'orders';
+  const amt = await getAmount();
   const saleType = ['배달', '매장', '포장'].includes(sp.type) ? sp.type : '';
   const [stores, cells] = await Promise.all([storeOptions(), heatmap(p, store, saleType)]);
 
@@ -60,10 +62,10 @@ export default async function TimePage({ searchParams }) {
         </div>
       </div>
       <FilterBar
-        periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores}
+        periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores} amount={metric === 'orders' ? undefined : amt.key}
         selects={[
           { name: 'type', label: '판매유형', options: [['', '전체'], ['배달', '배달'], ['매장', '매장'], ['포장', '포장']] },
-          { name: 'metric', label: '지표', options: [['', '주문 수'], ['rev', '매출(만원)'], ['aov', '객단가(원)']] },
+          { name: 'metric', label: '지표', options: [['', '주문 수'], ['rev', `${amt.label}(만원)`], ['aov', '객단가(원)']] },
         ]}
       />
 

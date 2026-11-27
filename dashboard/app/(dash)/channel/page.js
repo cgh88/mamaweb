@@ -1,14 +1,20 @@
 import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
+import { getAmount } from '@/lib/amount-server';
 import { parsePeriod, withParams } from '@/lib/period';
-import { byApp, byType, storeBreakdown, storeOptions, typeTrend } from '@/lib/queries';
+import { byApp, byType, storeBreakdown, storeOptions, typeByChannel, typeTrend } from '@/lib/queries';
 import { pct, won } from '@/lib/format';
 
 export const metadata = { title: '채널 분석 · 마마치킨' };
 
 const COLORS = { 배달: '#E5482B', 매장: '#2F5D9E', 포장: '#E59A2F', 배달의민족: '#E5482B', 쿠팡이츠: '#E59A2F', 요기요: '#8A5BA8' };
 const colorOf = (name, i) => COLORS[name] || ['#2F5D9E', '#6B8F3A', '#8A817A'][i % 3];
+const CH_ORDER = ['배달의민족', '쿠팡이츠', '요기요', '매장'];
+const chLabel = (c) => (c === '매장' ? '매장 POS (방문·전화)' : c);
+const TYPES = ['배달', '포장', '매장'];
+
+const total2 = (m) => m.reduce((s, r) => s + r.rev, 0);
 
 export default async function ChannelPage({ searchParams }) {
   await requireUser();
@@ -16,17 +22,28 @@ export default async function ChannelPage({ searchParams }) {
   const p = parsePeriod(sp);
   const store = sp.store || '';
   const view = sp.view === 'app' ? 'app' : 'type';
-  const [stores, list, trend, byStore] = await Promise.all([
+  const amt = await getAmount();
+  const [stores, list, trend, byStore, matrix] = await Promise.all([
     storeOptions(),
     view === 'app' ? byApp(p.from, p.to, store) : byType(p.from, p.to, store),
     typeTrend(p.to, store),
     storeBreakdown(p, store),
+    typeByChannel(p, store),
   ]);
   const total = list.reduce((s, r) => s + r.rev, 0);
   const rows = list.map((r, i) => ({
     ...r, color: colorOf(r.name, i), share: pct(r.rev, total),
     aov: r.orders ? r.rev / r.orders : 0, cancelRate: pct(r.cancels, Number(r.orders) + Number(r.cancels)),
   }));
+
+  // 주문 채널 × 판매유형 (POS 판매유형 그대로: 배민·쿠팡도 배달과 포장이 나뉨)
+  const sumOf = (list2) => list2.reduce((a, r) => ({ rev: a.rev + r.rev, orders: a.orders + Number(r.orders) }), { rev: 0, orders: 0 });
+  const cell = (t, c) => sumOf(matrix.filter((r) => r.type === t && r.channel === c));
+  const chans = [...new Set(matrix.map((r) => r.channel))].sort((a, b) => (CH_ORDER.indexOf(a) + 1 || 99) - (CH_ORDER.indexOf(b) + 1 || 99));
+  const typeTotal = (t) => sumOf(matrix.filter((r) => r.type === t));
+  const appTakeout = chans.filter((c) => c !== '매장').map((c) => [c, cell('포장', c).orders]).filter(([, n]) => n);
+  const appTakeoutOrders = appTakeout.reduce((s, [, n]) => s + n, 0);
+  const allOrders = TYPES.reduce((s, t) => s + typeTotal(t).orders, 0);
 
   // 월별 판매유형 비중
   const months = [...new Set(trend.map((r) => r.m))];
@@ -41,12 +58,13 @@ export default async function ChannelPage({ searchParams }) {
   const insights = [];
   if (view === 'type' && rows.length) {
     const top = rows[0];
-    insights.push([`${top.name} 비중 ${top.share}%`, `매출 ${won(top.rev)}원 · 주문 ${won(top.orders)}건`]);
+    insights.push([`${top.name} 비중 ${top.share}%`, `${amt.label} ${won(top.rev)}원 · 주문 ${won(top.orders)}건`]);
     const totalCancels = rows.reduce((s, r) => s + Number(r.cancels), 0);
     const dc = rows.find((r) => r.name === '배달');
     if (totalCancels && dc) insights.push([`취소 ${totalCancels}건 중 ${dc.cancels}건이 배달 주문`, `배달 취소율 ${dc.cancelRate}%`]);
     const hi = [...rows].sort((a, b) => b.aov - a.aov)[0];
     insights.push([`객단가가 가장 높은 유형: ${hi.name}`, `${won(hi.aov)}원`]);
+    if (appTakeoutOrders) insights.push([`배달앱 포장 주문 ${won(appTakeoutOrders)}건 (전체 포장의 ${pct(appTakeoutOrders, typeTotal('포장').orders, 0)}%)`, appTakeout.map(([c, n]) => `${c} ${won(n)}건`).join(' · ')]);
   }
   if (view === 'app') {
     const apps = rows.filter((r) => r.name !== '매장' && r.name !== '기타');
@@ -69,10 +87,10 @@ export default async function ChannelPage({ searchParams }) {
       <div className="head">
         <div>
           <h1>채널 분석</h1>
-          <div className="muted">{p.label} · 판매유형(배달·매장·포장)과 주문 채널(배달앱)별 결제 금액</div>
+          <div className="muted">{p.label} · 판매유형(배달·매장·포장)과 주문 채널(배달앱)별 {amt.label} ({amt.desc})</div>
         </div>
       </div>
-      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores} />
+      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['week', 'month', 'lastmonth', '12w', 'year']} stores={stores} amount={amt.key} />
 
       <section className="panel">
         <div className="ph">
@@ -92,7 +110,7 @@ export default async function ChannelPage({ searchParams }) {
             <div className="grid3">
               {rows.map((r) => (
                 <div key={r.name} className="card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><i className="sw" style={{ background: r.color }} />{r.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><i className="sw" style={{ background: r.color }} />{view === 'app' ? chLabel(r.name) : r.name}</div>
                   <div className="big">{won(r.rev)}<span className="small muted" style={{ fontWeight: 500 }}> 원 · {r.share}%</span></div>
                   <div className="small" style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">주문</span><span>{won(r.orders)}건</span></div>
                   <div className="small" style={{ display: 'flex', justifyContent: 'space-between' }}><span className="muted">객단가</span><span>{won(r.aov)}원</span></div>
@@ -101,8 +119,47 @@ export default async function ChannelPage({ searchParams }) {
               ))}
             </div>
             {view === 'app' && <div className="small muted">주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 주문은 앱별 코드, 그 외는 매장 POS).</div>}
+            {view === 'type' && <div className="small muted">포장에는 방문 포장과 배민·쿠팡 포장 주문이 함께 들어갑니다. 채널별 구분은 아래 표를 보세요.</div>}
           </>
         )}
+      </section>
+
+      <section className="panel">
+        <div className="ph">
+          <h2>배달 · 포장 구분 (주문 채널 × 판매유형)</h2>
+          <span className="small muted">배민·쿠팡도 배달과 포장을 나눠 집계 · {amt.label} (주문 수)</span>
+        </div>
+        <div className="scroll">
+          <table>
+            <thead><tr><th className="l">주문 채널</th>{TYPES.map((t) => <th key={t}>{t === '매장' ? '매장(홀)' : t}</th>)}<th>합계</th><th>포장 비중</th></tr></thead>
+            <tbody>
+              {chans.map((c) => {
+                const tot = TYPES.reduce((a, t) => ({ rev: a.rev + cell(t, c).rev, orders: a.orders + Number(cell(t, c).orders) }), { rev: 0, orders: 0 });
+                return (
+                  <tr key={c}>
+                    <td className="l"><b>{chLabel(c)}</b></td>
+                    {TYPES.map((t) => {
+                      const v = cell(t, c);
+                      return <td key={t}>{v.orders || v.rev ? <>{won(v.rev)} <span className="small muted">({won(v.orders)}건)</span></> : <span className="muted">-</span>}</td>;
+                    })}
+                    <td><b>{won(tot.rev)}</b> <span className="small muted">({won(tot.orders)}건)</span></td>
+                    <td>{pct(cell('포장', c).orders, tot.orders)}%</td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td className="l"><b>합계</b></td>
+                {TYPES.map((t) => { const v = typeTotal(t); return <td key={t}><b>{won(v.rev)}</b> <span className="small muted">({won(v.orders)}건)</span></td>; })}
+                <td><b>{won(total2(matrix))}</b></td>
+                <td>{pct(typeTotal('포장').orders, allOrders)}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="small muted">
+          배달·포장은 POS 판매유형(배달 1002 · 포장 1003) 기준이며, 주문상세의 배달/포장 수량 플래그와 모두 일치합니다.
+          주문 채널은 주문상세의 메뉴 코드로 판정합니다 (배달앱 코드가 있으면 그 앱, 없으면 매장 POS). 매장 POS의 배달은 전화 주문, 포장은 방문 포장입니다.
+        </div>
       </section>
 
       <div className="grid2">

@@ -38,6 +38,11 @@ import psycopg2
 
 # 판매채널: id_code 접두어 → 이름 (숫자 코드 = 매장 POS 메뉴)
 CHANNELS = {'BM': '배달의민족', 'CP': '쿠팡이츠', 'YG': '요기요', 'BDP': '배달앱(BDP)', 'SMTDP': '배달대행'}
+# 주문 단위 배달앱 판정에 쓰는 코드 (SMTDP 배달대행은 전화 주문의 배달팁 행이라 제외)
+DELIVERY_APPS = ['BM', 'CP', 'YG', 'BDP']
+APP_SHORT = {'BM': '배민', 'CP': '쿠팡', 'YG': '요기요', 'BDP': 'BDP'}
+# 배달앱이 아닌 주문(매장 POS 직접)의 주문 구분
+POS_KINDS = {'1001': '홀', '1002': '전화 배달', '1003': '방문 포장'}
 
 # 매장 기본 정보 — 처음 한 번만 넣고(ON CONFLICT DO NOTHING), 이후 수정은 DB의 store_info에서 (코드가 덮어쓰지 않음)
 # (POS 매장코드, 매장명, 상태, 비고)
@@ -101,16 +106,33 @@ LEFT JOIN pos_menu_map m
  AND m.menu_group = CASE WHEN d.id_code ~ '^[A-Z]' THEN '' ELSE COALESCE(d.id_menuname, '') END
  AND m.item_text = btrim(d.id_desc);
 
--- 주문 헤더 + 매장명 + 판매유형명. 매출 금액(결제액, 취소는 음수로 차감) 집계는 이 뷰에서
+-- 주문별 배달앱 (주문상세 메뉴코드 접두어). 수집할 때마다 다시 만듦 (refresh_order_app)
+CREATE TABLE IF NOT EXISTS pos_order_app (
+  inv_seq TEXT PRIMARY KEY,
+  app     TEXT NOT NULL
+);
+
+-- 주문 헤더 + 매장명 + 판매유형 + 주문 채널. 매출 금액 집계는 이 뷰에서 (취소는 음수로 차감)
+--   sale_type_name: POS 판매유형 (1001 매장 / 1002 배달 / 1003 포장). 배민·쿠팡 포장 주문도 POS에 포장으로 들어오며
+--                   주문상세 qty_delivery/qty_packing 플래그와 전부 일치함 (2026-11 확인)
+--   order_channel : 주문상세에 배달앱 메뉴코드(BM·CP·YG·BDP)가 있으면 그 앱, 없으면 '매장'(매장 POS 직접 주문)
+--   order_kind    : 채널 + 판매유형 (배민 배달·배민 포장·쿠팡 배달·쿠팡 포장·전화 배달·방문 포장·홀)
+--   gross_amt 총매출(할인 전) / grand_total 실매출(할인 후 결제액, 부가세 포함) / sub_tot 순매출(실매출 - 부가세 tax_tot)
 CREATE OR REPLACE VIEW v_pos_order AS
 SELECT
   h.store_code, COALESCE(s.store_name, h.store_code) AS store_name, COALESCE(s.status, '미등록') AS store_status,
   h.sale_date, h.order_date, h.inv_seq, h.pos_no,
   h.sale_type, COALESCE((%(sale_type_case)s), h.sale_type) AS sale_type_name,
   h.sale_stat, (h.sale_stat = 'B') AS is_cancel,
-  h.grand_total, h.net_amt, h.dc_amt, h.qty_sum
+  h.grand_total, h.net_amt, h.dc_amt, h.qty_sum,
+  h.sub_tot, h.tax_tot, h.gross_amt,
+  h.product_amt, h.ax_card, h.ax_cash, h.ax_etc, h.ret_inv_seq, h.dc_reason_desc,
+  COALESCE((%(app_case)s), '매장') AS order_channel,
+  CASE WHEN a.app IS NOT NULL THEN COALESCE((%(app_short_case)s), a.app) || ' ' || COALESCE((%(sale_type_case)s), h.sale_type)
+       ELSE COALESCE((%(pos_kind_case)s), h.sale_type) END AS order_kind
 FROM pos_order_header h
-LEFT JOIN store_info s ON s.store_code = h.store_code;
+LEFT JOIN store_info s ON s.store_code = h.store_code
+LEFT JOIN pos_order_app a ON a.inv_seq = h.inv_seq;
 """
 
 
@@ -355,13 +377,38 @@ def sync_web_menu(conn):
     return [(r[0], r[1], r[2], r[3]) for r in rows]
 
 
+def app_case():
+    return 'CASE ' + ' '.join(f"WHEN a.app = '{p}' THEN '{CHANNELS[p]}'" for p in DELIVERY_APPS) + ' END'
+
+
 def sale_type_case():
     return 'CASE ' + ' '.join(f"WHEN h.sale_type = '{k}' THEN '{v}'" for k, v in SALE_TYPES.items()) + ' END'
 
 
+def refresh_order_app(cur):
+    """주문상세에 배달앱 메뉴코드가 있는 주문 → pos_order_app (전체 재생성, 수만 건이라 1초 내)"""
+    cur.execute('DELETE FROM pos_order_app')
+    cur.execute(
+        f"""INSERT INTO pos_order_app (inv_seq, app)
+            SELECT DISTINCT ON (inv_seq) inv_seq, regexp_replace(id_code, '[0-9].*$', '')
+            FROM pos_order_detail WHERE id_code ~ '^({'|'.join(DELIVERY_APPS)})[0-9]'
+            ORDER BY inv_seq, inv_nos"""
+    )
+    return cur.rowcount
+
+
+def schema_params():
+    return {
+        'channel_case': channel_case(), 'sale_type_case': sale_type_case(), 'app_case': app_case(),
+        'app_short_case': 'CASE ' + ' '.join(f"WHEN a.app = '{p}' THEN '{n}'" for p, n in APP_SHORT.items()) + ' END',
+        'pos_kind_case': 'CASE ' + ' '.join(f"WHEN h.sale_type = '{k}' THEN '{v}'" for k, v in POS_KINDS.items()) + ' END',
+    }
+
+
 def update(conn, reclassify=False, log=print):
     with conn, conn.cursor() as cur:
-        cur.execute(SCHEMA % {'channel_case': channel_case(), 'sale_type_case': sale_type_case()})
+        cur.execute(SCHEMA % schema_params())
+        refresh_order_app(cur)
         cur.executemany(
             'INSERT INTO store_info (store_code, store_name, status, note) VALUES (%s, %s, %s, %s) ON CONFLICT (store_code) DO NOTHING',
             STORE_SEED,

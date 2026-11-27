@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { AMOUNT_COOKIE, AMOUNTS, DEFAULT_AMOUNT } from '@/lib/amount';
 import { q, q1 } from '@/lib/db';
 import { audit, requireUser } from '@/lib/auth';
 
@@ -75,4 +77,12 @@ export async function saveMapping(_prev, formData) {
   await audit(user.id, 'mapping_updated', { key, before: { menu_item_id: row.menu_item_id, std_name: row.std_name, category: row.category, is_option: row.is_option }, after, renamed });
   revalidatePath('/', 'layout');
   return { ok: `저장했습니다${renamed ? ` (같은 표준명 ${renamed}건도 함께 변경)` : ''}. 모든 기간의 집계에 바로 반영됩니다.` };
+}
+
+/** 매출 금액 기준 선택 (순매출·실매출·총매출) — 쿠키에 1년 보관 */
+export async function setAmount(key) {
+  await requireUser({ allowMustChange: true });
+  const jar = await cookies();
+  if (!AMOUNTS[key] || key === DEFAULT_AMOUNT) jar.delete(AMOUNT_COOKIE);
+  else jar.set(AMOUNT_COOKIE, key, { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 365 * 86400, secure: process.env.NODE_ENV === 'production' });
 }

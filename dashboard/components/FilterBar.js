@@ -3,12 +3,14 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { PERIODS } from '@/lib/period';
+import AmountSwitch from './AmountSwitch';
 
 /**
  * 기간·매장·비교 기준 필터. 상태는 URL 쿼리에 저장 (링크 공유·새로고침 시 유지)
+ *  amount: 매출 금액 기준 키(있으면 순매출·실매출·총매출 토글 표시)
  *  periods: 보여줄 기간 키 목록 / cmp: 비교 기준 토글 / stores: [{store_name, open}] / selects: 추가 드롭다운
  */
-export default function FilterBar({ periodKey, from, to, periods, cmp, stores, selects = [], extra }) {
+export default function FilterBar({ periodKey, from, to, periods, cmp, stores, selects = [], extra, amount }) {
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
@@ -61,8 +63,9 @@ export default function FilterBar({ periodKey, from, to, periods, cmp, stores, s
           </select>
         </label>
       ))}
+      {amount && <AmountSwitch value={amount} className={cmp ? '' : 'push'} />}
       {cmp && (
-        <div className="seg push" role="group" aria-label="비교 기준">
+        <div className={amount ? 'seg' : 'seg push'} role="group" aria-label="비교 기준">
           <button type="button" className={cmp !== 'yoy' ? 'on' : ''} onClick={() => go({ cmp: '' })}>전월·직전 기간 대비</button>
           <button type="button" className={cmp === 'yoy' ? 'on' : ''} onClick={() => go({ cmp: 'yoy' })}>전년 동기 · 동일 매장</button>
         </div>

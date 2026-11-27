@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
 
 const NAV = [
-  ['분석', [['/', '매출 현황'], ['/channel', '채널 분석'], ['/time', '시간 분석'], ['/menu', '메뉴 분석'], ['/stores', '매장 비교']]],
+  ['분석', [['/', '매출 현황'], ['/channel', '채널 분석'], ['/time', '시간 분석'], ['/menu', '메뉴 분석'], ['/stores', '매장 비교'], ['/orders', '주문 리포트']]],
   ['데이터 관리', [['/mapping', '메뉴 매핑 관리']]],
 ];
 

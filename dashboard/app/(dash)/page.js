@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
+import { getAmount } from '@/lib/amount-server';
 import { daysBetween, parsePeriod } from '@/lib/period';
 import { daily, monthlyByStore, overview, storeBreakdown, storeOptions } from '@/lib/queries';
 import { delta, pct, won } from '@/lib/format';
@@ -15,6 +16,7 @@ export default async function OverviewPage({ searchParams }) {
   const sp = await searchParams;
   const p = parsePeriod(sp);
   const store = sp.store || '';
+  const amt = await getAmount();
   const [stores, ov, days, byStore, monthly] = await Promise.all([
     storeOptions(), overview(p, store), daily(p, store), storeBreakdown(p, store), monthlyByStore(p.to, store),
   ]);
@@ -22,7 +24,7 @@ export default async function OverviewPage({ searchParams }) {
   const aov = (k) => (k.orders ? k.rev / k.orders : 0);
   const cancelRate = (k) => pct(k.cancels, Number(k.orders) + Number(k.cancels));
   const kpis = [
-    { label: '매출', value: won(cur.rev), unit: '원', d: delta(cur.rev, base.rev) },
+    { label: amt.label, value: won(cur.rev), unit: '원', d: delta(cur.rev, base.rev) },
     { label: '주문 수', value: won(cur.orders), unit: '건', d: delta(cur.orders, base.orders) },
     { label: '객단가', value: won(aov(cur)), unit: '원', d: delta(aov(cur), aov(base)) },
     {
@@ -77,10 +79,10 @@ export default async function OverviewPage({ searchParams }) {
       <div className="head">
         <div>
           <h1>매출 현황</h1>
-          <div className="muted">{p.label} · 결제 금액(취소 차감) 기준</div>
+          <div className="muted">{p.label} · {amt.label} 기준 ({amt.desc}, 취소 차감)</div>
         </div>
       </div>
-      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['yesterday', 'week', 'month', 'lastmonth', 'year']} cmp={p.cmp} stores={stores} />
+      <FilterBar periodKey={p.key} from={p.from} to={p.to} periods={['yesterday', 'week', 'month', 'lastmonth', 'year']} cmp={p.cmp} stores={stores} amount={amt.key} />
 
       <div className="grid4">
         {kpis.map((k) => (

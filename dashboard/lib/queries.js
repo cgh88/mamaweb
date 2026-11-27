@@ -1,10 +1,15 @@
 import 'server-only';
 import { q, q1 } from './db';
 import { addDays } from './period';
+import { getAmount } from './amount-server';
+
+/** 매출 금액 컬럼 (순매출 sub_tot 기본 / 실매출 grand_total / 총매출 gross_amt) — 화이트리스트 값만 SQL에 넣음 */
+const revCol = async () => (await getAmount()).col;
 
 /*
  * 집계 기준
- *  - 매출 금액: 주문 헤더(v_pos_order)의 결제액 grand_total. 취소(sale_stat='B')는 음수로 들어와 합계에서 상쇄
+ *  - 매출 금액: 주문 헤더(v_pos_order) 기준. 기본 순매출(sub_tot, 할인·부가세 제외), 화면에서 실매출·총매출 선택
+ *    취소(sale_stat='B')는 음수로 들어와 합계에서 상쇄
  *  - 주문 수: 취소가 아닌 주문 건수
  *  - 메뉴: 주문상세(v_pos_sales_item) 수량, 옵션 행 제외 — 상세 금액은 할인 전 정가라 매출로 쓰지 않음
  *  - 매장: store_info의 매장명 단위 (같은 매장의 POS 코드 변경은 하나로 합쳐짐)
@@ -39,6 +44,7 @@ async function sameStores(p, store) {
 }
 
 async function kpiRange(from, to, store, onlyStores) {
+  const c = await revCol();
   const params = [from, to];
   let where = `sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params)}`;
   if (onlyStores) {
@@ -46,7 +52,7 @@ async function kpiRange(from, to, store, onlyStores) {
     where += ` AND store_name = ANY($${params.length})`;
   }
   return q1(
-    `SELECT COALESCE(sum(grand_total), 0) AS rev,
+    `SELECT COALESCE(sum(${c}), 0) AS rev,
             count(*) FILTER (WHERE NOT is_cancel) AS orders,
             count(*) FILTER (WHERE is_cancel) AS cancels,
             count(*) FILTER (WHERE is_cancel AND sale_type_name = '배달') AS delivery_cancels
@@ -66,39 +72,42 @@ export async function overview(p, store) {
 }
 
 export async function daily(p, store) {
+  const c = await revCol();
   const cp = [p.from, p.to];
   const pp = [p.cmpFrom, p.cmpTo];
   const [cur, prev] = await Promise.all([
-    q(`SELECT sale_date AS d, sum(grand_total) AS rev, count(*) FILTER (WHERE NOT is_cancel) AS orders
+    q(`SELECT sale_date AS d, sum(${c}) AS rev, count(*) FILTER (WHERE NOT is_cancel) AS orders
        FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, cp)} GROUP BY 1 ORDER BY 1`, cp),
-    q(`SELECT sale_date AS d, sum(grand_total) AS rev
+    q(`SELECT sale_date AS d, sum(${c}) AS rev
        FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, pp)} GROUP BY 1 ORDER BY 1`, pp),
   ]);
   return { cur, prev };
 }
 
 export async function storeBreakdown(p, store) {
+  const c = await revCol();
   const params = [p.from, p.to];
   return q(
     `SELECT store_name, bool_or(store_status = '운영') AS open,
-            sum(grand_total) AS rev,
+            sum(${c}) AS rev,
             count(*) FILTER (WHERE NOT is_cancel) AS orders,
-            sum(grand_total) FILTER (WHERE sale_type_name = '배달') AS delivery,
-            sum(grand_total) FILTER (WHERE sale_type_name = '매장') AS dinein,
-            sum(grand_total) FILTER (WHERE sale_type_name = '포장') AS takeout,
+            sum(${c}) FILTER (WHERE sale_type_name = '배달') AS delivery,
+            sum(${c}) FILTER (WHERE sale_type_name = '매장') AS dinein,
+            sum(${c}) FILTER (WHERE sale_type_name = '포장') AS takeout,
             count(*) FILTER (WHERE NOT is_cancel AND sale_type_name = '배달') AS delivery_orders,
             count(*) FILTER (WHERE NOT is_cancel AND sale_type_name = '매장') AS dinein_orders
      FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params)}
-     GROUP BY 1 ORDER BY sum(grand_total) DESC`,
+     GROUP BY 1 ORDER BY sum(${c}) DESC`,
     params,
   );
 }
 
 /** 최근 12개월 매장별 월 매출 (to가 속한 달까지) */
 export async function monthlyByStore(to, store) {
+  const c = await revCol();
   const params = [to];
   return q(
-    `SELECT to_char(sale_date, 'YYYY-MM') AS m, store_name, sum(grand_total) AS rev
+    `SELECT to_char(sale_date, 'YYYY-MM') AS m, store_name, sum(${c}) AS rev
      FROM v_pos_order
      WHERE sale_date >= (date_trunc('month', $1::date) - interval '11 months')::date AND sale_date <= $1
        AND ${store === '' ? 'TRUE' : storeWhere(store, params)}
@@ -109,9 +118,10 @@ export async function monthlyByStore(to, store) {
 
 // ---------------------------------------------------------------- 채널
 export async function byType(from, to, store) {
+  const c = await revCol();
   const params = [from, to];
   return q(
-    `SELECT sale_type_name AS name, sum(grand_total) AS rev,
+    `SELECT sale_type_name AS name, sum(${c}) AS rev,
             count(*) FILTER (WHERE NOT is_cancel) AS orders, count(*) FILTER (WHERE is_cancel) AS cancels
      FROM v_pos_order WHERE sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params)}
      GROUP BY 1 ORDER BY 2 DESC`,
@@ -119,17 +129,14 @@ export async function byType(from, to, store) {
   );
 }
 
-/** 주문 채널(배달앱): 주문상세 첫 메뉴 행의 메뉴코드로 판정 */
+/** 주문 채널: v_pos_order.order_channel (주문상세에 배달앱 메뉴코드가 있으면 그 앱, 없으면 '매장' = 매장 POS 직접 주문) */
 export async function byApp(from, to, store) {
+  const c = await revCol();
   const params = [from, to];
   return q(
-    `WITH ch AS (
-       SELECT DISTINCT ON (inv_seq) inv_seq, channel FROM v_pos_sales_item
-       WHERE sale_date BETWEEN $1 AND $2 AND NOT is_option AND category <> '할인·조정'
-       ORDER BY inv_seq, inv_nos)
-     SELECT COALESCE(ch.channel, '기타') AS name, sum(o.grand_total) AS rev,
+    `SELECT o.order_channel AS name, sum(o.${c}) AS rev,
             count(*) FILTER (WHERE NOT o.is_cancel) AS orders, count(*) FILTER (WHERE o.is_cancel) AS cancels
-     FROM v_pos_order o LEFT JOIN ch ON ch.inv_seq = o.inv_seq
+     FROM v_pos_order o
      WHERE o.sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params, 'o')}
      GROUP BY 1 ORDER BY 2 DESC`,
     params,
@@ -137,9 +144,10 @@ export async function byApp(from, to, store) {
 }
 
 export async function typeTrend(to, store) {
+  const c = await revCol();
   const params = [to];
   return q(
-    `SELECT to_char(sale_date, 'YYYY-MM') AS m, sale_type_name AS name, sum(grand_total) AS rev
+    `SELECT to_char(sale_date, 'YYYY-MM') AS m, sale_type_name AS name, sum(${c}) AS rev
      FROM v_pos_order
      WHERE sale_date >= (date_trunc('month', $1::date) - interval '5 months')::date AND sale_date <= $1
        AND ${storeWhere(store, params)}
@@ -150,6 +158,7 @@ export async function typeTrend(to, store) {
 
 // ---------------------------------------------------------------- 시간
 export async function heatmap(p, store, saleType) {
+  const c = await revCol();
   const params = [p.from, p.to];
   let where = `sale_date BETWEEN $1 AND $2 AND NOT is_cancel AND order_date IS NOT NULL AND ${storeWhere(store, params)}`;
   if (saleType) {
@@ -158,7 +167,7 @@ export async function heatmap(p, store, saleType) {
   }
   return q(
     `SELECT extract(isodow FROM order_date)::int AS dow, extract(hour FROM order_date)::int AS hour,
-            count(*) AS orders, sum(grand_total) AS rev
+            count(*) AS orders, sum(${c}) AS rev
      FROM v_pos_order WHERE ${where} GROUP BY 1, 2`,
     params,
   );
@@ -254,13 +263,14 @@ export async function weeklyTop(to, store, limit = 3) {
 
 // ---------------------------------------------------------------- 매장
 export async function storeProfiles() {
+  const c = await revCol();
   return q(
     `SELECT i.store_name, bool_or(i.status = '운영') AS open,
             array_agg(DISTINCT i.store_code ORDER BY i.store_code) AS codes,
             min(o.sale_date) AS first_day, max(o.sale_date) AS last_day,
-            count(DISTINCT o.sale_date) AS days, COALESCE(sum(o.grand_total), 0) AS life
+            count(DISTINCT o.sale_date) AS days, COALESCE(sum(o.${c}), 0) AS life
      FROM store_info i LEFT JOIN v_pos_order o ON o.store_code = i.store_code
-     GROUP BY 1 ORDER BY bool_or(i.status = '운영') DESC, sum(o.grand_total) DESC NULLS LAST`,
+     GROUP BY 1 ORDER BY bool_or(i.status = '운영') DESC, sum(o.${c}) DESC NULLS LAST`,
   );
 }
 
@@ -334,4 +344,82 @@ export async function webMenuItems() {
 
 export async function dataStatus() {
   return q1(`SELECT max(sale_date) AS last_day, max(fetched_at) AS fetched_at FROM pos_order_header`);
+}
+
+// ---------------------------------------------------------------- 판매유형 × 주문 채널
+/**
+ * 주문 채널(배민·쿠팡·요기요·매장 POS) × 판매유형(배달·포장·매장) — 배민·쿠팡 포장 주문은 POS 판매유형 '포장'
+ * kind: 주문 구분 (배민 배달·배민 포장·쿠팡 배달·쿠팡 포장·전화 배달·방문 포장·홀)
+ */
+export async function typeByChannel(p, store) {
+  const c = await revCol();
+  const params = [p.from, p.to];
+  return q(
+    `SELECT o.sale_type_name AS type, o.order_kind AS kind, o.order_channel AS channel, sum(o.${c}) AS rev,
+            count(*) FILTER (WHERE NOT o.is_cancel) AS orders, count(*) FILTER (WHERE o.is_cancel) AS cancels
+     FROM v_pos_order o
+     WHERE o.sale_date BETWEEN $1 AND $2 AND ${storeWhere(store, params, 'o')}
+     GROUP BY 1, 2, 3`,
+    params,
+  );
+}
+
+// ---------------------------------------------------------------- 주문 리포트 (헤더 + 상세)
+export const ORDER_PAGE_SIZE = 50;
+
+function orderFilter(p, store, f) {
+  const params = [p.from, p.to];
+  const w = ['o.sale_date BETWEEN $1 AND $2', storeWhere(store, params, 'o')];
+  if (f.type) { params.push(f.type); w.push(`o.sale_type_name = $${params.length}`); }
+  if (f.status === 'cancel') w.push('o.is_cancel');
+  else if (f.status === 'ok') w.push('NOT o.is_cancel');
+  if (f.channel) { params.push(f.channel); w.push(`o.order_channel = $${params.length}`); }
+  if (f.search) {
+    params.push(`%${f.search.replace(/[\\%_]/g, '\\$&')}%`);
+    w.push(`EXISTS (SELECT 1 FROM v_pos_sales_item i WHERE i.inv_seq = o.inv_seq
+                    AND (i.item_text ILIKE $${params.length} OR i.std_name ILIKE $${params.length}))`);
+  }
+  return { params, where: w.join(' AND ') };
+}
+
+/** 조건에 맞는 주문 합계 (금액은 취소 차감) */
+export async function orderSummary(p, store, f) {
+  const { params, where } = orderFilter(p, store, f);
+  return q1(
+    `SELECT count(*) FILTER (WHERE NOT o.is_cancel) AS orders, count(*) FILTER (WHERE o.is_cancel) AS cancels,
+            COALESCE(sum(o.gross_amt), 0) AS gross, COALESCE(sum(o.gross_amt - o.grand_total), 0) AS dc,
+            COALESCE(sum(o.grand_total), 0) AS paid, COALESCE(sum(o.tax_tot), 0) AS tax, COALESCE(sum(o.sub_tot), 0) AS net
+     FROM v_pos_order o WHERE ${where}`,
+    params,
+  );
+}
+
+/** 주문 헤더 목록 (최신순). limit=0이면 전체 (CSV 내려받기용) */
+export async function orderList(p, store, f, page = 1, limit = ORDER_PAGE_SIZE) {
+  const { params, where } = orderFilter(p, store, f);
+  let tail = '';
+  if (limit) {
+    params.push(limit, (page - 1) * limit);
+    tail = `LIMIT $${params.length - 1} OFFSET $${params.length}`;
+  }
+  return q(
+    `SELECT o.inv_seq, o.sale_date, to_char(o.order_date, 'YYYY-MM-DD HH24:MI') AS order_time, o.store_name, o.pos_no,
+            o.sale_type_name, o.order_kind, o.order_channel AS channel, o.is_cancel, o.ret_inv_seq,
+            o.gross_amt AS gross, o.gross_amt - o.grand_total AS dc, o.grand_total AS paid, o.tax_tot AS tax, o.sub_tot AS net,
+            o.ax_card, o.ax_cash, o.ax_etc, o.dc_reason_desc, count(*) OVER () AS total
+     FROM v_pos_order o
+     WHERE ${where}
+     ORDER BY o.order_date DESC NULLS LAST, o.inv_seq DESC ${tail}`,
+    params,
+  );
+}
+
+/** 주문 상세 행 */
+export async function orderItems(invSeqs) {
+  if (!invSeqs.length) return [];
+  return q(
+    `SELECT inv_seq, inv_nos, id_code, item_text, std_name, category, is_option, qty, qtyprice, sumprice, dc_reason_desc
+     FROM v_pos_sales_item WHERE inv_seq = ANY($1) ORDER BY inv_seq, inv_nos`,
+    [invSeqs],
+  );
 }

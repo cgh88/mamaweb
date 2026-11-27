@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
+import { getAmount } from '@/lib/amount-server';
+import AmountSwitch from '@/components/AmountSwitch';
 import { addDays, daysBetween, todayKst, withParams } from '@/lib/period';
 import { monthlyByStore, storeBreakdown, storeInfoRows, storeProfiles } from '@/lib/queries';
 import { delta, eok, man, pct, won } from '@/lib/format';
@@ -13,6 +15,7 @@ export default async function StoresPage({ searchParams }) {
   await requireUser();
   const sp = await searchParams;
   const showClosed = sp.closed === '1';
+  const amt = await getAmount();
   const yesterday = addDays(todayKst(), -1);
   const monthStart = `${yesterday.slice(0, 7)}-01`;
   const prevEnd = addDays(monthStart, -1);
@@ -39,11 +42,14 @@ export default async function StoresPage({ searchParams }) {
       <div className="head">
         <div>
           <h1>매장 비교</h1>
-          <div className="muted">매장별 규모·성장·채널 구성 · 진행 중인 달은 일평균 매출로 비교 ({+yesterday.slice(5, 7)}월 {curDays}일 기준)</div>
+          <div className="muted">매장별 규모·성장·채널 구성 · {amt.label} 기준 · 진행 중인 달은 일평균으로 비교 ({+yesterday.slice(5, 7)}월 {curDays}일 기준)</div>
         </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <AmountSwitch value={amt.key} />
         <div className="seg" role="group" aria-label="폐점 매장">
           <Link scroll={false} className={showClosed ? '' : 'on'} href={withParams(sp, { closed: '' })}>운영 매장만</Link>
           <Link scroll={false} className={showClosed ? 'on' : ''} href={withParams(sp, { closed: '1' })}>폐점 매장 포함</Link>
+        </div>
         </div>
       </div>
 
