@@ -1,13 +1,14 @@
 import Sidebar from '@/components/Sidebar';
 import { requireUser } from '@/lib/auth';
 import { dataStatus } from '@/lib/queries';
+import { stockAlerts } from '@/lib/inventory';
 import { addDays, todayKst } from '@/lib/period';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashLayout({ children }) {
   const user = await requireUser({ allowMustChange: true });
-  const s = await dataStatus();
+  const [s, alerts] = await Promise.all([dataStatus(), stockAlerts().catch(() => ({ low: 0, warn: 0 }))]);
   const fetched = s?.fetched_at
     ? new Date(s.fetched_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     : '-';
@@ -15,7 +16,7 @@ export default async function DashLayout({ children }) {
   const ok = s?.last_day && s.last_day >= addDays(todayKst(), -2);
   return (
     <div className="app">
-      <Sidebar username={user.username} status={{ ok, lastDay: s?.last_day || '-', fetched }} />
+      <Sidebar username={user.username} status={{ ok, lastDay: s?.last_day || '-', fetched }} alerts={alerts} />
       <main className="main">{children}</main>
     </div>
   );

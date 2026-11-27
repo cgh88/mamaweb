@@ -21,3 +21,19 @@ export async function q(text, params) {
 export async function q1(text, params) {
   return (await q(text, params))[0];
 }
+
+/** 트랜잭션: fn(query) 안의 쿼리를 한 번에 커밋, 오류 시 롤백 */
+export async function tx(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(async (text, params) => (await client.query(text, params)).rows);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}

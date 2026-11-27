@@ -6,10 +6,11 @@ import { logout } from '@/app/login/actions';
 
 const NAV = [
   ['분석', [['/', '매출 현황'], ['/channel', '채널 분석'], ['/time', '시간 분석'], ['/menu', '메뉴 분석'], ['/stores', '매장 비교'], ['/orders', '주문 리포트']]],
-  ['데이터 관리', [['/mapping', '메뉴 매핑 관리']]],
+  ['재고', [['/consumption', '식자재 소모량'], ['/inventory', '재고·안전재고']]],
+  ['데이터 관리', [['/mapping', '메뉴 매핑 관리'], ['/recipes', '레시피·식자재']]],
 ];
 
-export default function Sidebar({ username, status }) {
+export default function Sidebar({ username, status, alerts = { low: 0, warn: 0 } }) {
   const path = usePathname();
   return (
     <aside className="side">
@@ -19,7 +20,12 @@ export default function Sidebar({ username, status }) {
           <div key={group} style={{ display: 'contents' }}>
             <p>{group}</p>
             {items.map(([href, label]) => (
-              <Link key={href} href={href} className={path === href ? 'on' : ''}><i />{label}</Link>
+              <Link key={href} href={href} className={path === href ? 'on' : ''}>
+                <i />{label}
+                {href === '/inventory' && alerts.low + alerts.warn > 0 && (
+                  <span className="badge" title={`부족 ${alerts.low} · 주의 ${alerts.warn}`} aria-label={`재고 알람 ${alerts.low + alerts.warn}건`}>{alerts.low + alerts.warn}</span>
+                )}
+              </Link>
             ))}
           </div>
         ))}
