@@ -91,6 +91,21 @@ CREATE TABLE IF NOT EXISTS inv_safety (
   PRIMARY KEY (store_name, ingredient_id)
 );
 
+-- 외부 인사이트: 매장이 직접 입력하는 이벤트 (학사일정·스포츠 경기·우리 프로모션·지역 행사 등)
+--   공휴일·날씨·예보·경쟁 브랜드 소식(ext_holiday·ext_weather·ext_forecast·ext_brand_news)은 pos-sync/external.py가 만듦
+CREATE TABLE IF NOT EXISTS ext_event (
+  id         SERIAL PRIMARY KEY,
+  date_from  DATE NOT NULL,
+  date_to    DATE NOT NULL,
+  store_name TEXT,                         -- NULL = 전 매장
+  category   TEXT NOT NULL,
+  title      TEXT NOT NULL,
+  note       TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (date_to >= date_from)
+);
+CREATE INDEX IF NOT EXISTS ext_event_dates ON ext_event (date_from, date_to);
+
 -- 대시보드 접속 계정(mamadash) 권한: 매출 데이터는 조회만, 매핑·매장 정보와 대시보드 테이블만 수정
 DO $$
 BEGIN
@@ -99,7 +114,7 @@ BEGIN
     EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA public TO mamadash';
     EXECUTE 'GRANT INSERT, UPDATE ON pos_menu_map, store_info TO mamadash';
     EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON dash_users, dash_sessions, dash_audit TO mamadash';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON inv_ingredient, inv_recipe, inv_stock_count, inv_receipt, inv_safety TO mamadash';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON inv_ingredient, inv_recipe, inv_stock_count, inv_receipt, inv_safety, ext_event TO mamadash';
     EXECUTE 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO mamadash';
     -- 이후 새로 만드는 테이블·뷰도 조회 가능하도록
     EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO mamadash';

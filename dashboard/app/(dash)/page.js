@@ -3,7 +3,9 @@ import Link from 'next/link';
 import FilterBar from '@/components/FilterBar';
 import { requireUser } from '@/lib/auth';
 import { getAmount } from '@/lib/amount-server';
-import { addDays, parsePeriod } from '@/lib/period';
+import { addDays, parsePeriod, todayKst } from '@/lib/period';
+import { baseForecast, brandStories, events, forecast, holidayImpact, holidays, weather, weatherImpact } from '@/lib/external';
+import { buildOutlook, holidaySummary, obsIcon, weatherSummary, wxIcon } from '@/lib/outlook';
 import { dailyRecent, monthlyByStore, overview, storeBreakdown, storeOptions } from '@/lib/queries';
 import { delta, pct, won } from '@/lib/format';
 
@@ -19,9 +21,22 @@ export default async function OverviewPage({ searchParams }) {
   const p = parsePeriod(sp);
   const store = sp.store || '';
   const amt = await getAmount();
-  const [stores, ov, days, byStore, monthly] = await Promise.all([
+  const today = todayKst();
+  const chartFrom = addDays(p.to, -(CHART_DAYS - 1));
+  const [stores, ov, days, byStore, monthly, ext] = await Promise.all([
     storeOptions(), overview(p, store), dailyRecent(p.to, store, CHART_DAYS, p.cmp === 'yoy' ? 364 : 7), storeBreakdown(p, store), monthlyByStore(p.to, store),
+    // 외부 인사이트 (수집 전·실패 시에도 화면은 동작)
+    Promise.all([
+      holidays(chartFrom < today ? chartFrom : today, addDays(today, 6)), events(chartFrom, addDays(today, 6), store), weather(chartFrom, p.to),
+      forecast(), baseForecast(store), weatherImpact(addDays(today, -1), store), holidayImpact(addDays(today, -1), store),
+      brandStories({ days: 14, limit: 30 }),
+    ]).catch(() => null),
   ]);
+  const [hols, evs, obs, fc, fbase, wxRows, holRows, stories] = ext || [[], [], [], [], { byDow: [], chickenPerOrder: 0 }, [], [], []];
+  const outlook = buildOutlook({ today, days: 3, store, base: fbase, holidays: hols, events: evs, forecast: fc, wx: weatherSummary(wxRows), hol: holidaySummary(holRows) });
+  const hotStories = stories.filter((s) => s.kind !== '소식').slice(0, 5);
+  const holOf = Object.fromEntries(hols.map((h) => [h.day, h.name]));
+  const obsOf = Object.fromEntries(obs.map((w) => [w.day, w]));
   const { cur, base, lfl } = ov;
   const aov = (k) => (k.orders ? k.rev / k.orders : 0);
   const cancelRate = (k) => pct(k.cancels, Number(k.orders) + Number(k.cancels));
@@ -36,6 +51,7 @@ export default async function OverviewPage({ searchParams }) {
     },
   ];
 
+  const dayEvents = (d) => evs.filter((e) => e.date_from <= d && e.date_to >= d);
   // 일별 막대: 기간 마지막 날까지 최근 14일 (선택 기간에 든 날짜는 라벨 굵게) + 비교 점
   //   비교: 전주 같은 요일, 전년 비교 선택 시 52주 전 같은 요일
   const shift = p.cmp === 'yoy' ? 364 : 7;
@@ -49,7 +65,10 @@ export default async function OverviewPage({ searchParams }) {
       d, rev: x.rev, prev, inPeriod: d >= p.from,
       label: `${+d.slice(5, 7)}/${+d.slice(8)}`,
       weekend: dow === 0 || dow === 6,
-      title: `${d} (${'일월화수목금토'[dow]}) · 매출 ${won(x.rev)}원 · 주문 ${x.orders}건 · 객단가 ${won(x.orders ? x.rev / x.orders : 0)}원 · ${p.cmp === 'yoy' ? '52주 전' : '전주'} 같은 요일 ${won(prev)}원`,
+      title: `${d} (${'일월화수목금토'[dow]}) · 매출 ${won(x.rev)}원 · 주문 ${x.orders}건 · 객단가 ${won(x.orders ? x.rev / x.orders : 0)}원 · ${p.cmp === 'yoy' ? '52주 전' : '전주'} 같은 요일 ${won(prev)}원`
+        + (holOf[d] ? ` · 공휴일 ${holOf[d]}` : '') + dayEvents(d).map((e) => ` · ${e.title}`).join('')
+        + (obsOf[d] ? ` · ${Math.round(obsOf[d].avg_ta)}℃${Number(obsOf[d].rain_mm) >= 1 ? ` 비 ${obsOf[d].rain_mm}mm` : ''}` : ''),
+      marks: [holOf[d] && '🎌', dayEvents(d).length && '📌', obsIcon(obsOf[d])].filter(Boolean).join(''),
     };
   });
   const max = Math.max(1, ...bars.map((b) => Math.max(b.rev, b.prev))) * 1.08;
@@ -99,6 +118,46 @@ export default async function OverviewPage({ searchParams }) {
 
       <section className="panel">
         <div className="ph">
+          <h2>외부 인사이트</h2>
+          <Link className="small" href="/insights">전체 보기 →</Link>
+        </div>
+        <div className="grid2" style={{ alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <b className="small muted">앞으로 3일</b>
+            <div className="days compact">
+              {outlook.map((d) => (
+                <div key={d.d} className={d.holiday ? 'day hol' : 'day'}>
+                  <div className="dt"><b className={d.weekend ? 'we' : ''}>{+d.d.slice(5, 7)}/{+d.d.slice(8)} ({d.dow})</b><span className="small muted">{d.d === today ? '오늘' : d.d === addDays(today, 1) ? '내일' : ''}</span></div>
+                  <div className="wx">{d.fc ? <><span className="ic" aria-hidden="true">{wxIcon(d.fc)}</span><span>{Math.round(d.fc.min_ta)}~{Math.round(d.fc.max_ta)}℃{Number(d.fc.pop) >= 30 ? ` · 강수 ${d.fc.pop}%` : ''}</span></> : <span className="small muted">예보 없음</span>}</div>
+                  <div><span className="exp">{d.expected ? won(d.expected) : '-'}</span><span className="small muted"> 건 예상</span></div>
+                  {d.chicken ? <span className="small muted">생닭 약 {won(d.chicken)}마리</span> : null}
+                  {d.holiday && <span className="ev h">🎌 {d.holiday}</span>}
+                  {d.events.map((e) => <span key={e.id} className="ev">📌 {e.title}</span>)}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <b className="small muted">경쟁 브랜드 이벤트·신메뉴 (최근 14일)</b>
+            {hotStories.length === 0 ? <div className="empty">새 소식이 없습니다.</div> : (
+              <div className="stories">
+                {hotStories.map((s) => (
+                  <div key={s.story} className="story" style={{ gridTemplateColumns: '78px 1fr' }}>
+                    <div><b className="small">{s.brand}</b><br /><span className={s.kind === '신메뉴' ? 'tag menu' : 'tag ev'}>{s.kind}</span></div>
+                    <div>
+                      <a href={s.link} target="_blank" rel="noopener noreferrer">{s.title}</a>
+                      <div className="meta">{new Date(s.last_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' })} · {s.source || '언론사'}{s.articles > 1 ? ` 외 ${s.articles - 1}건` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="ph">
           <h2>일별 매출 <span className="small muted" style={{ fontWeight: 400 }}>최근 {CHART_DAYS}일</span></h2>
           <div className="legend">
             <span><i className="sw" style={{ background: '#E5482B' }} />매출</span>
@@ -114,12 +173,13 @@ export default async function OverviewPage({ searchParams }) {
                   <div className="b" style={{ height: b.h }} />
                   {b.ph > 0 && <div className="dot" style={{ bottom: b.ph }} />}
                 </div>
-                <div className={b.weekend ? 'xl we' : 'xl'} style={partialChart && b.inPeriod ? { fontWeight: 700 } : undefined}>{b.label}</div>
+                <div className={b.weekend || holOf[b.d] ? 'xl we' : 'xl'} style={partialChart && b.inPeriod ? { fontWeight: 700 } : undefined}>{b.label}</div>
+                <div className="xl" style={{ minHeight: 16, fontSize: 12 }} aria-hidden="true">{b.marks}</div>
               </div>
             ))}
           </div>
         </div>
-        <div className="small muted">기간 마지막 날까지 최근 {CHART_DAYS}일을 보여줍니다.{partialChart && ' 선택 기간에 든 날짜는 굵게 표시합니다.'} 막대에 마우스를 올리면 그날 매출·주문 수·객단가와 비교 값을 볼 수 있습니다. 주말 날짜는 붉게 표시합니다.</div>
+        <div className="small muted">기간 마지막 날까지 최근 {CHART_DAYS}일을 보여줍니다.{partialChart && ' 선택 기간에 든 날짜는 굵게 표시합니다.'} 막대에 마우스를 올리면 그날 매출·주문 수·객단가와 비교 값을 볼 수 있습니다. 주말·공휴일 날짜는 붉게 표시하고, 아래에 🎌 공휴일 · 📌 매장 이벤트 · 🌧️ 비(서울 관측)를 표시합니다.</div>
       </section>
 
       <div className="grid2">

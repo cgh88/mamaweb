@@ -34,3 +34,18 @@ systemctl list-timers mamapos-sync.timer      # 다음 실행 시각
 journalctl -u mamapos-sync --since today      # 실행 로그
 sudo systemctl start mamapos-sync             # 지금 바로 1회 실행
 ```
+
+## 외부 데이터 (external.py)
+
+매일 POS 수집 뒤 자동 실행됩니다 (실패해도 POS 수집에는 영향 없음). 단독 실행: `python3 external.py [--only holiday|weather|forecast|news]`.
+
+| 테이블 | 내용 | 출처 | 키 |
+|---|---|---|---|
+| ext_holiday | 공휴일 (작년~내년) | Nager.Date | 불필요 |
+| ext_weather | 서울(108) 일별 기온·강수 | 기상청 ASOS 일자료 | DATA_GO_KR_KEY |
+| ext_forecast | 매장 동네 단기예보 (오늘~3일) | 기상청 단기예보 | DATA_GO_KR_KEY |
+| ext_brand_news | 경쟁 브랜드(bhc·BBQ·교촌·굽네·60계) 이벤트·신메뉴 기사 제목·링크 | 네이버 뉴스 검색 API (없으면 Google 뉴스 RSS) | NAVER_CLIENT_ID/SECRET (권장) |
+
+- 날씨 키를 처음 넣은 뒤 과거 날씨 채우기: `python3 external.py --only weather --weather-from 20231101`
+- 같은 내용의 기사는 제목 유사도로 한 소식(story)으로 묶고, 분류(이벤트·할인/신메뉴/소식)는 제목 키워드로 판정합니다.
+- 매장 이벤트(ext_event)는 대시보드 `/insights`에서 입력합니다 (dashboard/db/schema.sql).

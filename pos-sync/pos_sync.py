@@ -203,6 +203,12 @@ def main():
         except Exception:
             failed += 1
             log.exception('메뉴 매핑 실패')
+        # 외부 데이터(공휴일·날씨·예보·경쟁 브랜드 소식): 실패해도 POS 수집 결과에는 영향 없음, 실패 수에 넣지 않음
+        try:
+            import external
+            external.update(conn)
+        except Exception:
+            log.exception('외부 데이터 수집 실패')
     finally:
         conn.close()
     log.info('수집 종료: 실패 %d건', failed)
