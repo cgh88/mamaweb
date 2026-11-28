@@ -118,46 +118,6 @@ export default async function OverviewPage({ searchParams }) {
 
       <section className="panel">
         <div className="ph">
-          <h2>외부 인사이트</h2>
-          <Link className="small" href="/insights">전체 보기 →</Link>
-        </div>
-        <div className="grid2" style={{ alignItems: 'start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <b className="small muted">앞으로 3일</b>
-            <div className="days compact">
-              {outlook.map((d) => (
-                <div key={d.d} className={d.holiday ? 'day hol' : 'day'}>
-                  <div className="dt"><b className={d.weekend ? 'we' : ''}>{+d.d.slice(5, 7)}/{+d.d.slice(8)} ({d.dow})</b><span className="small muted">{d.d === today ? '오늘' : d.d === addDays(today, 1) ? '내일' : ''}</span></div>
-                  <div className="wx">{d.fc ? <><span className="ic" aria-hidden="true">{wxIcon(d.fc)}</span><span>{Math.round(d.fc.min_ta)}~{Math.round(d.fc.max_ta)}℃{Number(d.fc.pop) >= 30 ? ` · 강수 ${d.fc.pop}%` : ''}</span></> : <span className="small muted">예보 없음</span>}</div>
-                  <div><span className="exp">{d.expected ? won(d.expected) : '-'}</span><span className="small muted"> 건 예상</span></div>
-                  {d.chicken ? <span className="small muted">생닭 약 {won(d.chicken)}마리</span> : null}
-                  {d.holiday && <span className="ev h">🎌 {d.holiday}</span>}
-                  {d.events.map((e) => <span key={e.id} className="ev">📌 {e.title}</span>)}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <b className="small muted">경쟁 브랜드 이벤트·신메뉴 (최근 14일)</b>
-            {hotStories.length === 0 ? <div className="empty">새 소식이 없습니다.</div> : (
-              <div className="stories">
-                {hotStories.map((s) => (
-                  <div key={s.story} className="story" style={{ gridTemplateColumns: '78px 1fr' }}>
-                    <div><b className="small">{s.brand}</b><br /><span className={s.kind === '신메뉴' ? 'tag menu' : 'tag ev'}>{s.kind}</span></div>
-                    <div>
-                      <a href={s.link} target="_blank" rel="noopener noreferrer">{s.title}</a>
-                      <div className="meta">{new Date(s.last_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' })} · {s.source || '언론사'}{s.articles > 1 ? ` 외 ${s.articles - 1}건` : ''}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="ph">
           <h2>일별 매출 <span className="small muted" style={{ fontWeight: 400 }}>최근 {CHART_DAYS}일</span></h2>
           <div className="legend">
             <span><i className="sw" style={{ background: '#E5482B' }} />매출</span>
@@ -242,6 +202,45 @@ export default async function OverviewPage({ searchParams }) {
           <div className="small muted">{partialMonth ? `${+curMonth.slice(5)}월은 ${+p.to.slice(8)}일까지의 값이라 옅게 표시합니다.` : '최근 12개월'}</div>
         </section>
       </div>
+      <section className="panel">
+        <div className="ph">
+          <h2>외부 인사이트</h2>
+          <Link className="small" href="/insights">전체 보기 →</Link>
+        </div>
+        <div className="grid2" style={{ alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <b className="small muted">앞으로 3일</b>
+            <div className="days compact">
+              {outlook.map((d) => (
+                <div key={d.d} className={d.holiday ? 'day hol' : 'day'}>
+                  <div className="dt"><b className={d.weekend ? 'we' : ''}>{+d.d.slice(5, 7)}/{+d.d.slice(8)} ({d.dow})</b><span className="small muted">{d.d === today ? '오늘' : d.d === addDays(today, 1) ? '내일' : ''}</span></div>
+                  <div className="wx">{d.fc ? <><span className="ic" aria-hidden="true">{wxIcon(d.fc)}</span><span>{Math.round(d.fc.min_ta)}~{Math.round(d.fc.max_ta)}℃{Number(d.fc.pop) >= 30 ? ` · 강수 ${d.fc.pop}%` : ''}</span></> : <span className="small muted">예보 없음</span>}</div>
+                  <div><span className="exp">{d.expected ? won(d.expected) : '-'}</span><span className="small muted"> 건 예상</span></div>
+                  {d.chicken ? <span className="small muted">생닭 약 {won(d.chicken)}마리</span> : null}
+                  {d.holiday && <span className="ev h">🎌 {d.holiday}</span>}
+                  {d.events.map((e) => <span key={e.id} className="ev">📌 {e.title}</span>)}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <b className="small muted">경쟁 브랜드 이벤트·신메뉴 (최근 14일)</b>
+            {hotStories.length === 0 ? <div className="empty">새 소식이 없습니다.</div> : (
+              <div className="stories">
+                {hotStories.map((s) => (
+                  <div key={s.story} className="story" style={{ gridTemplateColumns: '78px 1fr' }}>
+                    <div><b className="small">{s.brand}</b><br /><span className={s.kind === '신메뉴' ? 'tag menu' : 'tag ev'}>{s.kind}</span></div>
+                    <div>
+                      <a href={s.link} target="_blank" rel="noopener noreferrer">{s.title}</a>
+                      <div className="meta">{new Date(s.last_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' })} · {s.source || '언론사'}{s.articles > 1 ? ` 외 ${s.articles - 1}건` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </>
   );
 }
