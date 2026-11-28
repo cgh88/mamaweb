@@ -175,3 +175,9 @@ th.l, td.l { text-align: left; }
 .wxbar { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; font-size: 13px; }
 .wxbar .track { height: 18px; }
 @media (max-width: 720px) { .story { grid-template-columns: 1fr; gap: 4px; } }
+
+/* 설정 */
+.setting { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+.setting > label { flex-direction: row !important; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink) !important; }
+.setting code { font-weight: 400; }
+.setting-actions { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; justify-content: space-between; }

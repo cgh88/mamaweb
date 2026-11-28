@@ -15,6 +15,13 @@ export const EVENT_CATEGORIES = ['학사일정', '스포츠 경기', '우리 프
 export const KIND_ORDER = ['이벤트·할인', '신메뉴', '소식'];
 export const BRAND_NAMES = ['bhc', 'BBQ', '교촌치킨', '굽네치킨', '60계치킨'];
 
+/** 경쟁 브랜드 이름: 설정 페이지 COMPETITOR_BRANDS가 있으면 그 목록 (pos-sync/external.py와 같은 형식) */
+export async function competitorBrands() {
+  const rows = await safe(q(`SELECT value FROM dash_setting WHERE key = 'COMPETITOR_BRANDS' AND NOT secret`));
+  const names = (rows[0]?.value || '').split('\n').map((l) => l.split(':')[0].trim()).filter((n, i, a) => n && a.indexOf(n) === i);
+  return names.length ? names : BRAND_NAMES;
+}
+
 // 매장 필터: '' = 운영 매장 전체, 'all' = 전체, 그 외 매장명
 //   같은 store 값을 여러 번 써도 파라미터는 한 번만 추가
 function storeCond(store, params, col = 'store_name') {

@@ -180,11 +180,21 @@ def main():
         # 기본: 어제 포함 SYNC_DAYS일 재수집 (사후 취소/반품 반영)
         start = args.date_from or end - datetime.timedelta(days=int(os.environ.get('POS_SYNC_DAYS', '3')) - 1)
         days = [start + datetime.timedelta(days=i) for i in range((end - start).days + 1)]
+    conn = psycopg2.connect(connect_timeout=10)  # PGHOST/PGDATABASE/PGUSER/PGPASSWORD 환경변수 사용
+    # 대시보드 설정 페이지에서 저장한 토큰·매장코드 등을 .env보다 우선 적용
+    try:
+        from settings_store import apply_db_settings
+        apply_db_settings(conn, log=log.info)
+    except Exception:
+        log.exception('대시보드 설정 읽기 실패 — .env 값 사용')
+    if not args.date and not args.date_from:  # 재수집 일수가 설정에서 바뀌었을 수 있음
+        end = args.date_to or yesterday
+        start = end - datetime.timedelta(days=int(os.environ.get('POS_SYNC_DAYS', '3')) - 1)
+        days = [start + datetime.timedelta(days=i) for i in range((end - start).days + 1)]
     stores = args.store or [s.strip() for s in os.environ['POS_STORE_CODES'].split(',') if s.strip()]
 
     session = requests.Session()
     session.headers.update({'Authorization': f'Bearer {os.environ["POS_API_TOKEN"]}', 'Accept': 'application/json'})
-    conn = psycopg2.connect(connect_timeout=10)  # PGHOST/PGDATABASE/PGUSER/PGPASSWORD 환경변수 사용
     failed = 0
     try:
         ensure_schema(conn)

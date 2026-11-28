@@ -51,6 +51,20 @@ BRANDS = [
     ('굽네치킨', ['굽네']),
     ('60계치킨', ['60계']),
 ]
+
+
+def brands():
+    """대시보드 설정 COMPETITOR_BRANDS ('이름: 표기1, 표기2' 줄 단위)가 있으면 그 목록, 없으면 기본 5개"""
+    out = []
+    for line in os.environ.get('COMPETITOR_BRANDS', '').splitlines():
+        if ':' in line:
+            name, words = line.split(':', 1)
+            names = [w.strip() for w in words.split(',') if w.strip()]
+            if name.strip() and names:
+                out.append((name.strip(), names))
+    return out or BRANDS
+
+
 NEWS_KEEP_DAYS = 60
 EVENT_RE = re.compile(r'이벤트|할인|프로모션|증정|쿠폰|반값|페스타|혜택|사은|무료|특가|세일|깎아|1\+1|블프|블랙프라이데이')
 # 치킨과 무관한 같은 회사 브랜드·여러 브랜드를 나열한 소식 모음 기사 제외
@@ -291,7 +305,7 @@ def update_news(conn):
     provider = 'naver' if cid and secret else 'google'
     cutoff = datetime.datetime.now(KST) - datetime.timedelta(days=NEWS_KEEP_DAYS)
     rows, seen = [], set()
-    for brand, names in BRANDS:
+    for brand, names in brands():
         for word in ('이벤트', '할인', '신메뉴'):
             query = f'{names[0] if brand != "bhc" else "bhc치킨"} {word}'
             try:
@@ -329,23 +343,24 @@ def update_news(conn):
     log.info('브랜드 소식 %d건, %d개 소식으로 묶음 (%s)', len(rows), n, provider)
 
 
-_COMMON = ['치킨', '이벤트', '할인', '출시', '판매', '진행', '고객', '신메뉴'] + [n for _, names in BRANDS for n in names]
-_STOP = {w.lower()[i:i + 2] for w in _COMMON for i in range(len(w) - 1)}
+_COMMON = ['치킨', '이벤트', '할인', '출시', '판매', '진행', '고객', '신메뉴']
 
 
-def bigrams(title):
+def bigrams(title, stop):
     t = re.sub(r'[^0-9A-Za-z가-힣]', '', re.sub(r'\[[^]]*\]', '', title)).lower()
-    return {t[i:i + 2] for i in range(len(t) - 1)} - _STOP
+    return {t[i:i + 2] for i in range(len(t) - 1)} - stop
 
 
 def group_stories(cur):
     """브랜드별로 5일 이내 기사 중 제목 글자쌍(bigram)이 짧은 쪽 기준 50% 이상 겹치면 한 소식으로 묶음.
     브랜드명·'치킨'·'할인' 같은 흔한 단어는 비교에서 뺌. 대표 = 가장 이른 기사"""
+    words = _COMMON + [n for _, names in brands() + BRANDS for n in names]
+    stop = {w.lower()[i:i + 2] for w in words for i in range(len(w) - 1)}
     cur.execute('SELECT link, brand, title, pub_at FROM ext_brand_news ORDER BY brand, pub_at')
     groups = []  # [brand, rep_link, [bigram sets], last pub]
     assign = []
     for link, brand, title, pub in cur.fetchall():
-        bg = bigrams(title)
+        bg = bigrams(title, stop)
         best = None
         for g in groups:
             if g[0] != brand or (pub - g[3]).days > 5 or not bg:
@@ -402,6 +417,11 @@ def main():
     args = ap.parse_args()
     conn = psycopg2.connect(connect_timeout=10)
     try:
+        try:  # 단독 실행 시에도 대시보드 설정(API 키 등) 적용. POS 수집에서 호출될 때는 이미 적용됨
+            from settings_store import apply_db_settings
+            apply_db_settings(conn, log=log.info)
+        except Exception:
+            log.exception('대시보드 설정 읽기 실패 — .env 값 사용')
         return 1 if update(conn, args.only, args.weather_from) else 0
     finally:
         conn.close()

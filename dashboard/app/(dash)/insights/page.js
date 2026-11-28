@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { addDays, todayKst, withParams } from '@/lib/period';
 import { storeOptions } from '@/lib/queries';
 import {
-  BRAND_NAMES, EVENT_CATEGORIES, KIND_ORDER, baseForecast, brandStories, brandSummary, events, externalStatus, forecast,
+  competitorBrands, EVENT_CATEGORIES, KIND_ORDER, baseForecast, brandStories, brandSummary, events, externalStatus, forecast,
   holidayImpact, holidays, weatherImpact,
 } from '@/lib/external';
 import { buildOutlook, holidaySummary, weatherSummary, wxIcon } from '@/lib/outlook';
@@ -27,7 +27,8 @@ export default async function InsightsPage({ searchParams }) {
   const yesterday = addDays(today, -1);
   const stores = (await storeOptions()).filter((s) => s.open).map((s) => s.store_name);
   const store = stores.includes(sp.store) ? sp.store : '';
-  const brand = BRAND_NAMES.includes(sp.brand) ? sp.brand : '';
+  const brandNames = await competitorBrands();
+  const brand = brandNames.includes(sp.brand) ? sp.brand : '';
   const kind = KIND_ORDER.includes(sp.kind) || sp.kind === 'all' ? sp.kind : '';
   const [hols, evs, fc, base, wxRows, holRows, stories, summary, status, evList] = await Promise.all([
     holidays(today, addDays(today, 60)), events(today, addDays(today, 6), store), forecast(), baseForecast(store),
@@ -42,7 +43,7 @@ export default async function InsightsPage({ searchParams }) {
   const nextHol = hols.find((h) => h.day > addDays(today, 6));
 
   // 브랜드 카드: 최근 30일 소식 수
-  const brandCards = BRAND_NAMES.map((b) => {
+  const brandCards = brandNames.map((b) => {
     const rows = summary.filter((r) => r.brand === b);
     const get = (k) => rows.find((r) => r.kind === k)?.stories || 0;
     const last = rows.reduce((m, r) => (!m || r.last_at > m ? r.last_at : m), null);

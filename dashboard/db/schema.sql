@@ -106,6 +106,17 @@ CREATE TABLE IF NOT EXISTS ext_event (
 );
 CREATE INDEX IF NOT EXISTS ext_event_dates ON ext_event (date_from, date_to);
 
+-- 운영 설정 (API 키 등): 비밀값은 AES-256-GCM 암호문만 저장 (키는 서버 .env SETTINGS_KEY)
+--   pos-sync가 실행할 때 읽어 .env보다 우선 적용 (pos-sync/settings_store.py)
+CREATE TABLE IF NOT EXISTS dash_setting (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,                -- 비밀값은 'v1:…' 암호문
+  secret     BOOLEAN NOT NULL DEFAULT false,
+  hint       TEXT,                         -- 비밀값 끝 4자리 (화면 표시용)
+  updated_by INTEGER REFERENCES dash_users (id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- 대시보드 접속 계정(mamadash) 권한: 매출 데이터는 조회만, 매핑·매장 정보와 대시보드 테이블만 수정
 DO $$
 BEGIN
@@ -113,7 +124,7 @@ BEGIN
     EXECUTE 'GRANT USAGE ON SCHEMA public TO mamadash';
     EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA public TO mamadash';
     EXECUTE 'GRANT INSERT, UPDATE ON pos_menu_map, store_info TO mamadash';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON dash_users, dash_sessions, dash_audit TO mamadash';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON dash_users, dash_sessions, dash_audit, dash_setting TO mamadash';
     EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON inv_ingredient, inv_recipe, inv_stock_count, inv_receipt, inv_safety, ext_event TO mamadash';
     EXECUTE 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO mamadash';
     -- 이후 새로 만드는 테이블·뷰도 조회 가능하도록
