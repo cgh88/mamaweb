@@ -120,6 +120,22 @@ CREATE TABLE IF NOT EXISTS dash_setting (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 개선 요청: 모든 계정이 보내고, 슈퍼관리자가 상태·답변 관리 (/help, /feedback)
+CREATE TABLE IF NOT EXISTS dash_feedback (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER REFERENCES dash_users (id) ON DELETE SET NULL,
+  category   TEXT NOT NULL,
+  page       TEXT,                          -- 관련 화면
+  title      TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT '접수' CHECK (status IN ('접수', '검토 중', '진행 중', '완료', '보류')),
+  reply      TEXT,                          -- 슈퍼관리자 답변
+  replied_by INTEGER REFERENCES dash_users (id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS dash_feedback_status ON dash_feedback (status, created_at DESC);
+
 -- 대시보드 접속 계정(mamadash) 권한: 매출 데이터는 조회만, 매핑·매장 정보와 대시보드 테이블만 수정
 DO $$
 BEGIN
@@ -127,7 +143,7 @@ BEGIN
     EXECUTE 'GRANT USAGE ON SCHEMA public TO mamadash';
     EXECUTE 'GRANT SELECT ON ALL TABLES IN SCHEMA public TO mamadash';
     EXECUTE 'GRANT INSERT, UPDATE ON pos_menu_map, store_info TO mamadash';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON dash_users, dash_sessions, dash_audit, dash_setting TO mamadash';
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON dash_users, dash_sessions, dash_audit, dash_setting, dash_feedback TO mamadash';
     EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON inv_ingredient, inv_recipe, inv_stock_count, inv_receipt, inv_safety, ext_event TO mamadash';
     EXECUTE 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO mamadash';
     -- 이후 새로 만드는 테이블·뷰도 조회 가능하도록

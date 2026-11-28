@@ -8,9 +8,10 @@ const NAV = [
   ['분석', [['/', '매출 현황'], ['/insights', '외부 인사이트'], ['/channel', '채널 분석'], ['/time', '시간 분석'], ['/menu', '메뉴 분석'], ['/stores', '매장 비교'], ['/orders', '주문 리포트']]],
   ['재고', [['/consumption', '식자재 소모량'], ['/inventory', '재고·안전재고']]],
   ['데이터 관리', [['/mapping', '메뉴 매핑 관리'], ['/recipes', '레시피·식자재'], ['/settings', '설정', 'super']]],
+  ['도움', [['/help', '도움말·개선 요청'], ['/feedback', '개선 요청 관리', 'super']]],
 ];
 
-export default function Sidebar({ username, isSuper = false, status, alerts = { low: 0, warn: 0 }, newEvents = 0 }) {
+export default function Sidebar({ username, isSuper = false, status, alerts = { low: 0, warn: 0 }, newEvents = 0, newFeedback = 0 }) {
   const path = usePathname();
   return (
     <aside className="side">
@@ -22,6 +23,9 @@ export default function Sidebar({ username, isSuper = false, status, alerts = { 
             {items.filter(([, , only]) => !only || isSuper).map(([href, label]) => (
               <Link key={href} href={href} className={path === href ? 'on' : ''}>
                 <i />{label}
+                {href === '/feedback' && newFeedback > 0 && (
+                  <span className="badge" title={`새로 접수된 개선 요청 ${newFeedback}건`} aria-label={`새 개선 요청 ${newFeedback}건`}>{newFeedback}</span>
+                )}
                 {href === '/insights' && newEvents > 0 && (
                   <span className="badge" style={{ background: '#2F5D9E' }} title={`최근 3일 경쟁 브랜드 이벤트·신메뉴 소식 ${newEvents}건`} aria-label={`새 경쟁사 소식 ${newEvents}건`}>{newEvents}</span>
                 )}
