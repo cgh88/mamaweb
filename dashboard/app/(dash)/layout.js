@@ -17,7 +17,7 @@ export default async function DashLayout({ children }) {
   const ok = s?.last_day && s.last_day >= addDays(todayKst(), -2);
   return (
     <div className="app">
-      <Sidebar username={user.username} status={{ ok, lastDay: s?.last_day || '-', fetched }} alerts={alerts} newEvents={newEvents} />
+      <Sidebar username={user.username} isSuper={!!user.is_super} status={{ ok, lastDay: s?.last_day || '-', fetched }} alerts={alerts} newEvents={newEvents} />
       <main className="main">{children}</main>
     </div>
   );

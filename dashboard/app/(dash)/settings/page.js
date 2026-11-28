@@ -1,4 +1,4 @@
-import { requireUser } from '@/lib/auth';
+import { requireSuper } from '@/lib/auth';
 import { hasMasterKey, opsStatus, settingHistory, settingRows } from '@/lib/settings';
 import { SETTING_GROUPS } from '@/lib/settings-def';
 import SettingsForm from './SettingsForm';
@@ -7,12 +7,12 @@ export const metadata = { title: '설정 · 마마치킨' };
 export const dynamic = 'force-dynamic';
 
 const fmt = (ts) => (ts ? new Date(ts).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-');
-const ACTIONS = { setting_updated: '설정 저장', setting_tested: '연결 테스트' };
+const ACTIONS = { setting_updated: '설정 저장', setting_tested: '연결 테스트', setting_imported: '서버 .env에서 가져오기' };
 // 클라이언트로 보낼 수 있는 값만 (정규식·함수 제외)
 const plain = (it) => ({ key: it.key, label: it.label, secret: !!it.secret, help: it.help || '', multiline: !!it.multiline, placeholder: it.placeholder || '' });
 
 export default async function SettingsPage() {
-  await requireUser();
+  await requireSuper();
   const [current, history, ops] = await Promise.all([settingRows(), settingHistory(), opsStatus()]);
   const keyOk = hasMasterKey();
   const { pos, ext } = ops;
@@ -74,7 +74,7 @@ export default async function SettingsPage() {
                     <td className="l">{h.username || '-'}</td>
                     <td className="l">{ACTIONS[h.action] || h.action}</td>
                     <td className="l small">
-                      {h.action === 'setting_updated'
+                      {h.action === 'setting_imported' ? (h.detail?.keys || []).join(', ') : h.action === 'setting_updated'
                         ? (h.detail?.changes || []).map((c) => `${c.key} ${c.change}`).join(', ')
                         : `${h.detail?.group || ''} ${h.detail?.ok ? '성공' : '실패'}`}
                     </td>

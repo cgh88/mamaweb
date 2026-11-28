@@ -61,7 +61,7 @@ export async function getUser() {
   if (!token) return null;
   return (
     (await q1(
-      `SELECT u.id, u.username, u.must_change FROM dash_sessions s JOIN dash_users u ON u.id = s.user_id
+      `SELECT u.id, u.username, u.must_change, u.is_super FROM dash_sessions s JOIN dash_users u ON u.id = s.user_id
        WHERE s.token_hash = $1 AND s.expires_at > now()`,
       [hashToken(token)],
     )) || null
@@ -73,6 +73,13 @@ export async function requireUser({ allowMustChange = false } = {}) {
   const user = await getUser();
   if (!user) redirect('/login');
   if (user.must_change && !allowMustChange) redirect('/account?first=1');
+  return user;
+}
+
+/** 슈퍼관리자 전용 페이지·액션 (설정). 일반 계정은 메인으로 */
+export async function requireSuper() {
+  const user = await requireUser();
+  if (!user.is_super) redirect('/');
   return user;
 }
 

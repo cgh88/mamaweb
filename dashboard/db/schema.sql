@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS dash_users (
   last_login_at TIMESTAMPTZ
 );
 
+-- 슈퍼관리자: 설정(API 키 등) 화면 접근 가능 — scripts/create-user.js --super
+ALTER TABLE dash_users ADD COLUMN IF NOT EXISTS is_super BOOLEAN NOT NULL DEFAULT false;
+
 -- 로그인 세션: 토큰 원문 대신 SHA-256 해시 저장
 CREATE TABLE IF NOT EXISTS dash_sessions (
   token_hash TEXT PRIMARY KEY,

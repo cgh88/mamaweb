@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { q, q1 } from '@/lib/db';
-import { audit, requireUser, verifyPassword } from '@/lib/auth';
+import { audit, requireSuper, verifyPassword } from '@/lib/auth';
 import { encrypt } from '@/lib/secret';
 import { settingValue } from '@/lib/settings';
 import { SETTING_GROUPS } from '@/lib/settings-def';
@@ -12,7 +12,7 @@ const MAX_LEN = 2000;
 
 /** 설정 저장 — 현재 비밀번호 확인 필요. 비밀값은 빈칸이면 기존 값 유지 */
 export async function saveSettings(_prev, fd) {
-  const user = await requireUser();
+  const user = await requireSuper();
   const group = SETTING_GROUPS.find((g) => g.id === fd.get('group'));
   if (!group) return { error: '알 수 없는 설정입니다.' };
   const me = await q1('SELECT salt, hash FROM dash_users WHERE id = $1', [user.id]);
@@ -121,7 +121,7 @@ async function testNews(fd) {
 }
 
 export async function testSettings(_prev, fd) {
-  const user = await requireUser();
+  const user = await requireSuper();
   const group = fd.get('group');
   try {
     const r = group === 'pos' ? await testPos(fd) : group === 'weather' ? await testWeather(fd) : group === 'news' ? await testNews(fd) : { error: '테스트할 수 없는 항목입니다.' };
